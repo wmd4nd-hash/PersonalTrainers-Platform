@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  TRAINER
+  CLIENT
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  trainerProfile TrainerProfile?
+  bookings       Booking[]
+  assignments    ProgramAssignment[]
+}
+
+model TrainerProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline          String   @default("")
+  bio               String   @default("")
+  specialties       String[]
+  city              String   @default("")
+  timezone          String   @default("UTC")
+  yearsExperience   Int      @default(0)
+  sessionRateCents  Int      @default(5000)
+  sessionMinutes    Int      @default(60)
+  currency          String   @default("usd")
+  published         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  availability AvailabilityWindow[]
+  bookings     Booking[]
+  programs     Program[]
+}
+
+/// A weekly recurring window, in the trainer's local timezone.
+model AvailabilityWindow {
+  id          String         @id @default(cuid())
+  trainerId   String
+  trainer     TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  /// 0 = Sunday … 6 = Saturday
+  dayOfWeek   Int
+  /// Minutes since local midnight, e.g. 540 = 09:00
+  startMinute Int
+  endMinute   Int
+
+  @@index([trainerId])
+}
+
+model Booking {
+  id                      String         @id @default(cuid())
+  trainerId               String
+  trainer                 TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId                String
+  client                  User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  startsAt                DateTime
+  endsAt                  DateTime
+  status                  BookingStatus  @default(PENDING_PAYMENT)
+  priceCents              Int
+  currency                String
+  notes                   String         @default("")
+  stripeCheckoutSessionId String?        @unique
+  createdAt               DateTime       @default(now())
+
+  @@index([trainerId, startsAt])
+  @@index([clientId, startsAt])
+}
+
+model Program {
+  id          String         @id @default(cuid())
+  trainerId   String
+  trainer     TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  title       String
+  description String         @default("")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workouts    Workout[]
+  assignments ProgramAssignment[]
+
+  @@index([trainerId])
+}
+
+model Workout {
+  id        String     @id @default(cuid())
+  programId String
+  program   Program    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  dayNumber Int
+  title     String
+  notes     String     @default("")
+  exercises Exercise[]
+
+  @@index([programId, dayNumber])
+}
+
+model Exercise {
+  id          String  @id @default(cuid())
+  workoutId   String
+  workout     Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  position    Int
+  name        String
+  sets        Int
+  reps        String
+  restSeconds Int     @default(60)
+
+  @@index([workoutId, position])
+}
+
+model ProgramAssignment {
+  id         String   @id @default(cuid())
+  programId  String
+  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([programId, clientId])
+}
