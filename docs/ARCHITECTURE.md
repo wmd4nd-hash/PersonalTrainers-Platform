@@ -28,7 +28,7 @@ These are used by several features. Change their signatures only with care.
 | `lib/sessions.ts` | `meetingUrlFor(trainer, bookingId)`: trainer's link or a Jitsi room. |
 | `lib/events.ts` | Domain events (`bookingConfirmed`, `bookingCancelled`, `packageActivated`, `reviewPosted`, `messageSent`, `documentReviewed`). Call these after state changes; they decide who is notified. |
 | `lib/notify.ts` | `notify({ userId, type, title, body, link, email })` writes an in-app `Notification` and queues an `EmailOutbox` row; `queueEmail()`. |
-| `lib/webhooks/` | Stripe webhook dispatch. `checkout.ts` handles Checkout sessions (metadata `kind` = `booking` or `package`), `connect.ts` handles Connect account events. |
+| `lib/webhooks/` | Stripe webhook dispatch. `checkout.ts` handles Checkout sessions (metadata `kind` = `booking` or `package`), `connect.ts` handles Connect account events, `charges.ts` syncs refunds made in the Stripe dashboard. |
 | `lib/nav.ts` | Sidebar links per role. |
 | `components/ui.tsx` | Buttons, inputs, cards, badges. Add new shared components as new files. |
 
@@ -45,7 +45,7 @@ Pages that several features contribute to render one component per feature, each
 
 | Feature | Owns |
 | --- | --- |
-| Payments | `lib/payments.ts`, `lib/booking-lifecycle.ts`, `lib/cancellation.ts`, `lib/webhooks/*`, `app/actions/bookings.ts`, `app/actions/payouts.ts`, `dashboard/payouts`, `dashboard/earnings`, `dashboard/payments` |
+| Payments | `lib/payments.ts`, `lib/booking-lifecycle.ts`, `lib/cancellation.ts`, `lib/earnings.ts`, `lib/payment-records.ts`, `lib/webhooks/*`, `app/actions/bookings.ts`, `app/actions/payouts.ts`, `dashboard/payouts`, `dashboard/earnings`, `dashboard/payments`, `api/earnings` |
 | Packages | `lib/packages.ts`, `app/actions/packages.ts`, `dashboard/packages`, `trainers/[id]/packages-section.tsx` |
 | Reviews | `lib/reviews.ts`, `app/actions/reviews.ts`, `components/rating-summary.tsx`, `trainers/[id]/reviews-section.tsx`, `dashboard/_components/booking-review-action.tsx`, `dashboard/reviews`, `admin/reviews` |
 | Messaging | `lib/messaging.ts`, `lib/contact-detection.ts`, `app/actions/messages.ts`, `dashboard/messages`, `trainers/[id]/message-button.tsx`, `components/messages-link.tsx` |

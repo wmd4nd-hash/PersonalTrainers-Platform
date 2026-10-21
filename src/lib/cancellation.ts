@@ -25,10 +25,11 @@ export function cancellationOutcome(input: CancellationInput): CancellationOutco
   // Trainers and admins cancelling never penalise the client.
   const late = input.cancelledBy === "CLIENT" && hoursAhead < input.windowHours;
   const feePercent = late ? Math.min(100, Math.max(0, input.lateFeePercent)) : 0;
-  const keptCents = Math.round((input.paidCents * feePercent) / 100);
+  const paidCents = Math.max(0, Math.round(input.paidCents));
+  const keptCents = Math.round((paidCents * feePercent) / 100);
   return {
     late,
-    refundCents: input.paidCents - keptCents,
+    refundCents: paidCents - keptCents,
     keptCents,
     restoreCredit: !late || feePercent === 0,
   };

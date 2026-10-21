@@ -97,7 +97,20 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
     await bookingConfirmed(bookingId);
     redirect(`/dashboard/bookings/${bookingId}?booked=1`);
   }
-  redirect(await beginBookingCheckout(bookingId));
+
+  let paymentUrl: string;
+  try {
+    paymentUrl = await beginBookingCheckout(bookingId);
+  } catch (err) {
+    console.error(`Could not start checkout for booking ${bookingId}`, err);
+    // Free the slot now rather than holding it for a payment that never started.
+    await db.booking.updateMany({
+      where: { id: bookingId, status: "PENDING_PAYMENT" },
+      data: { status: "CANCELLED", cancelledAt: new Date(), cancellationReason: "Payment could not be started" },
+    });
+    return { error: "We couldn't start the payment, so nothing was charged. Please try again." };
+  }
+  redirect(paymentUrl);
 }
 
 export async function cancelBooking(bookingId: string, formData?: FormData) {
