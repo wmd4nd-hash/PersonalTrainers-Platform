@@ -28,13 +28,13 @@ export function RefundButton({
   }
 
   return (
-    <form action={action} className="min-w-56 space-y-2">
+    <form action={action} className="space-y-2">
       {state.error && <Alert>{state.error}</Alert>}
       <p className="text-xs">
         Refund {summary} to {clientName}? Their package will be cancelled.
       </p>
       <div className="flex flex-wrap gap-2">
-        <SubmitButton variant="danger" className="px-3 py-1.5" pendingText="Refunding…">
+        <SubmitButton variant="danger" className="px-3 py-1.5" pendingText="Refunding…" autoFocus>
           Confirm refund
         </SubmitButton>
         <Button type="button" variant="ghost" className="px-3 py-1.5" onClick={() => setConfirming(false)}>

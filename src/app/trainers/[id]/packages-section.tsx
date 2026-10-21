@@ -29,7 +29,7 @@ export async function PackagesSection({
         <h2 id="packages-heading" className="font-semibold">
           Packages
         </h2>
-        <p className="text-sm text-subtle">Pay for several sessions up front and pay less for each one.</p>
+        <p className="text-sm text-subtle">Buy several sessions up front and pay less for each one.</p>
       </div>
       <ul className="grid gap-4 sm:grid-cols-2">
         {packages.map((p) => {

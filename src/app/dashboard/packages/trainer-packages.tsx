@@ -14,8 +14,8 @@ import {
 } from "@/lib/package-pricing";
 import { expirePurchases } from "@/lib/packages";
 import { PackageForm } from "./package-form";
-import { formatDay, plural, PurchaseBadge } from "./purchase-status";
-import { RefundButton } from "./refund-button";
+import { formatDay, plural } from "./purchase-status";
+import { PurchasesList, type PurchaseRow } from "./purchases-list";
 
 /** How many purchases the table shows, newest first. */
 const PURCHASE_LIMIT = 200;
@@ -77,13 +77,13 @@ export async function TrainerPackages() {
               No packages yet. A 5 or 10 session pack at a small discount is a good place to start.
             </p>
           ) : (
-            <ul className="grid gap-4 sm:grid-cols-2">
+            <ul className="grid items-start gap-4 sm:grid-cols-2">
               {packages.map((p) => {
                 const saving = savingsPercent(p.priceCents, p.sessionCount, sessionRateCents);
                 const savedCents = fullPriceCents(p.sessionCount, sessionRateCents) - p.priceCents;
                 return (
                   <li key={p.id}>
-                    <Card className="flex h-full flex-col gap-3">
+                    <Card className="flex flex-col gap-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <h3 className="font-semibold break-words">{p.title}</h3>
@@ -128,7 +128,7 @@ export async function TrainerPackages() {
                         {p._count.purchases === 0 ? "Not sold yet" : `Sold ${plural(p._count.purchases, "time")}`}
                         {!p.active && " · Hidden from your profile. Clients who bought it can still use it."}
                       </p>
-                      <div className="mt-auto space-y-3">
+                      <div className="space-y-3">
                         <form action={(p.active ? deactivatePackage : reactivatePackage).bind(null, p.id)}>
                           <Button variant="secondary" className="px-3 py-1.5" aria-label={`${p.active ? "Deactivate" : "Reactivate"} ${p.title}`}>
                             {p.active ? "Deactivate" : "Reactivate"}
@@ -175,70 +175,28 @@ export async function TrainerPackages() {
           {purchases.length === 0 ? (
             <p className="text-sm text-subtle">No one has bought a package yet. Sales will show up here.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-              <table className="w-full min-w-[640px] text-sm">
-                <thead className="border-b border-line text-left text-xs text-subtle">
-                  <tr>
-                    <th scope="col" className="px-4 py-2 font-medium">Client</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Package</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Sessions used</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Expires</th>
-                    <th scope="col" className="px-4 py-2 font-medium">Status</th>
-                    <th scope="col" className="px-4 py-2 font-medium">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {purchases.map((p) => {
-                    const state = purchaseState(p, now);
-                    const refundCents = unusedRefundCents(p);
-                    const unused = unusedSessions(p);
-                    const upcoming = p.bookings.length;
-                    const refundable = (p.status === "ACTIVE" || p.status === "EXPIRED") && refundCents > 0;
-                    return (
-                      <tr key={p.id} className="align-top">
-                        <td className="px-4 py-3">
-                          <p className="font-medium">{p.client.name}</p>
-                          <p className="text-xs break-all text-subtle">{p.client.email}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p>{p.package.title}</p>
-                          <p className="text-xs text-subtle">{formatMoney(p.priceCents, p.currency)}</p>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {p.sessionsUsed} / {p.sessionsTotal}
-                          {upcoming > 0 && <p className="text-xs text-subtle">{upcoming} booked ahead</p>}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">{formatDay(p.expiresAt, timezone)}</td>
-                        <td className="px-4 py-3">
-                          <PurchaseBadge state={state} />
-                          {p.refundedCents > 0 && (
-                            <p className="mt-1 text-xs text-subtle">
-                              Refunded {formatMoney(p.refundedCents, p.currency)}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {refundable &&
-                            (upcoming > 0 ? (
-                              <p className="max-w-48 text-left text-xs text-subtle">
-                                Cancel the booked {upcoming === 1 ? "session" : "sessions"} to refund the rest.
-                              </p>
-                            ) : (
-                              <RefundButton
-                                purchaseId={p.id}
-                                clientName={p.client.name}
-                                summary={`${formatMoney(refundCents, p.currency)} for ${plural(unused, "unused session")}`}
-                              />
-                            ))}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <PurchasesList
+              rows={purchases.map((p): PurchaseRow => {
+                const refundCents = unusedRefundCents(p);
+                const refundable = (p.status === "ACTIVE" || p.status === "EXPIRED") && refundCents > 0;
+                return {
+                  id: p.id,
+                  clientName: p.client.name,
+                  clientEmail: p.client.email,
+                  title: p.package.title,
+                  price: formatMoney(p.priceCents, p.currency),
+                  sessionsUsed: p.sessionsUsed,
+                  sessionsTotal: p.sessionsTotal,
+                  upcoming: p.bookings.length,
+                  expires: formatDay(p.expiresAt, timezone),
+                  state: purchaseState(p, now),
+                  refunded: p.refundedCents > 0 ? formatMoney(p.refundedCents, p.currency) : null,
+                  refundSummary: refundable
+                    ? `${formatMoney(refundCents, p.currency)} for ${plural(unusedSessions(p), "unused session")}`
+                    : null,
+                };
+              })}
+            />
           )}
           {purchases.length === PURCHASE_LIMIT && (
             <p className="mt-2 text-xs text-subtle">Showing your {PURCHASE_LIMIT} most recent purchases.</p>

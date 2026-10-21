@@ -4,10 +4,10 @@ import type { SeedContext } from "./context";
 
 /** A 5-session pack at about 10% off and a 10-session pack at about 15% off. */
 const PACKS = [
-  { sessionCount: 5, discount: 0.1, validDays: 90, title: "5-session pack", description: "Five sessions to build a habit." },
+  { sessionCount: 5, discountPercent: 10, validDays: 90, title: "5-session pack", description: "Five sessions to build a habit." },
   {
     sessionCount: 10,
-    discount: 0.15,
+    discountPercent: 15,
     validDays: 180,
     title: "10-session pack",
     description: "Ten sessions for steady progress, at the best price per session.",
@@ -15,8 +15,8 @@ const PACKS = [
 ] as const;
 
 /** Rounded down to a whole unit of currency, so the saving is never less than advertised. */
-function packPriceCents(sessionRateCents: number, sessionCount: number, discount: number) {
-  return Math.floor((sessionRateCents * sessionCount * (1 - discount)) / 100) * 100;
+function packPriceCents(sessionRateCents: number, sessionCount: number, discountPercent: number) {
+  return Math.floor((sessionRateCents * sessionCount * (100 - discountPercent)) / 10_000) * 100;
 }
 
 /** Demo data for the packages feature. Must be safe to run more than once. */
@@ -39,7 +39,7 @@ export async function seedPackages(ctx: SeedContext) {
             title: pack.title,
             description: pack.description,
             sessionCount: pack.sessionCount,
-            priceCents: packPriceCents(trainer.sessionRateCents, pack.sessionCount, pack.discount),
+            priceCents: packPriceCents(trainer.sessionRateCents, pack.sessionCount, pack.discountPercent),
             validDays: pack.validDays,
           },
           select: { id: true },
