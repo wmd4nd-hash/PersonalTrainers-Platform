@@ -181,7 +181,12 @@ export async function refundUnusedSessions(purchaseId: string, _prev: FormState)
     return { error: "The refund didn't go through, so nothing has changed. Please try again." };
   }
 
-  await notifyPackageRefunded(purchaseId, { amountCents: claimed.amountCents, sessions: claimed.sessions });
+  try {
+    await notifyPackageRefunded(purchaseId, { amountCents: claimed.amountCents, sessions: claimed.sessions });
+  } catch (err) {
+    // The money has moved; a failed notification shouldn't look like a failed refund.
+    console.error("Package refund notification failed", err);
+  }
   refresh();
   return { ok: true };
 }

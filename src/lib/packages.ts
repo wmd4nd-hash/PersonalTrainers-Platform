@@ -94,13 +94,12 @@ export async function restoreCredit(tx: Tx, purchaseId: string, now = new Date()
   if (!purchase || purchase.sessionsUsed <= 0) return;
   if (purchase.status === "CANCELLED" || purchase.status === "PENDING_PAYMENT") return;
 
-  let status = purchase.status;
-  if (status === "ACTIVE" || status === "EXHAUSTED") {
-    status = purchase.expiresAt > now ? "ACTIVE" : "EXPIRED";
-  }
+  // Depends only on the expiry date, so concurrent restores agree on it.
+  const status = purchase.status === "EXPIRED" || purchase.expiresAt <= now ? "EXPIRED" : "ACTIVE";
+  // Atomic decrement: two cancellations at once must both give their session back.
   await tx.packagePurchase.updateMany({
-    where: { id: purchase.id, status: purchase.status, sessionsUsed: purchase.sessionsUsed },
-    data: { sessionsUsed: purchase.sessionsUsed - 1, status },
+    where: { id: purchase.id, sessionsUsed: { gt: 0 }, status: { in: ["ACTIVE", "EXHAUSTED", "EXPIRED"] } },
+    data: { sessionsUsed: { decrement: 1 }, status },
   });
 }
 

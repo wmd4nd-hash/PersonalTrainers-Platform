@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { differenceInCalendarDays } from "date-fns";
 import { Alert, Card, PageHeader } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -132,7 +131,7 @@ export async function ClientPackages({ clientId, purchasedId }: { clientId: stri
 
 function ActiveCard({ purchase: p, now }: { purchase: Purchase; now: Date }) {
   const remaining = p.sessionsTotal - p.sessionsUsed;
-  const daysLeft = differenceInCalendarDays(p.expiresAt, now);
+  const daysLeft = Math.ceil((p.expiresAt.getTime() - now.getTime()) / 86_400_000);
   return (
     <Card className="flex h-full flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
@@ -157,7 +156,7 @@ function ActiveCard({ purchase: p, now }: { purchase: Purchase; now: Date }) {
         </div>
         <p className={daysLeft <= EXPIRES_SOON_DAYS ? "text-sm font-medium text-amber-700 dark:text-amber-300" : "text-sm text-subtle"}>
           Use by {formatDay(p.expiresAt, p.trainer.timezone)}
-          {daysLeft <= EXPIRES_SOON_DAYS && ` (${daysLeft <= 0 ? "today" : plural(daysLeft, "day")} left)`}
+          {daysLeft <= EXPIRES_SOON_DAYS && ` (${plural(daysLeft, "day")} left)`}
         </p>
       </div>
 
