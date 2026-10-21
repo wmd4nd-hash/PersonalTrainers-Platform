@@ -10,16 +10,21 @@ export type CurrentUser = {
   name: string;
   email: string;
   role: Role;
+  avatarFileId: string | null;
 };
 
 /** Returns the signed-in user, or null. Deduplicated per request. */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const { userId } = await getSession();
   if (!userId) return null;
-  return db.user.findUnique({
+  const user = await db.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true },
+    select: { id: true, name: true, email: true, role: true, avatarFileId: true, suspendedAt: true },
   });
+  // Suspended accounts are treated as signed out.
+  if (!user || user.suspendedAt) return null;
+  const { suspendedAt: _suspendedAt, ...current } = user;
+  return current;
 });
 
 export async function requireUser(): Promise<CurrentUser> {
@@ -30,8 +35,12 @@ export async function requireUser(): Promise<CurrentUser> {
 
 export async function requireRole(role: Role): Promise<CurrentUser> {
   const user = await requireUser();
-  if (user.role !== role) redirect("/dashboard");
+  if (user.role !== role) redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
   return user;
+}
+
+export async function requireAdmin(): Promise<CurrentUser> {
+  return requireRole("ADMIN");
 }
 
 /** The signed-in trainer's profile id. Every trainer has a profile from signup. */

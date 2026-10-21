@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { sealData, unsealData } from "iron-session";
 import { SESSION_COOKIE } from "./session-cookie";
 
@@ -20,6 +21,8 @@ function password() {
 export async function getSession(): Promise<SessionData> {
   const cookie = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!cookie) return {};
+  // Unsealing checks the expiry against the clock, so it must run at request time.
+  await connection();
   try {
     return await unsealData<SessionData>(cookie, {
       password: password(),

@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { logout } from "@/app/actions/auth";
 import { getCurrentUser } from "@/lib/auth";
 import { site } from "@/lib/site";
+import { MessagesLink } from "./messages-link";
+import { NotificationBell } from "./notification-bell";
 import { Button, Skeleton } from "./ui";
 
 export function SiteHeader() {
@@ -44,8 +46,10 @@ async function AccountNav() {
   }
   return (
     <>
-      <Link href="/dashboard" className="rounded-lg px-2 py-1 hover:bg-muted">
-        Dashboard
+      <MessagesLink />
+      <NotificationBell />
+      <Link href={user.role === "ADMIN" ? "/admin" : "/dashboard"} className="rounded-lg px-2 py-1 hover:bg-muted">
+        {user.role === "ADMIN" ? "Admin" : "Dashboard"}
       </Link>
       <form action={logout}>
         <Button variant="ghost" className="px-2 py-1">

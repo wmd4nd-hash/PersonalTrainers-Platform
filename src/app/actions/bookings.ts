@@ -5,10 +5,14 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { requireRole, requireUser } from "@/lib/auth";
+import { cancelBookingAs, completeBookingAs } from "@/lib/booking-lifecycle";
 import { getBusyPeriods } from "@/lib/bookings";
 import { db } from "@/lib/db";
-import { CHECKOUT_EXPIRY_MINUTES, isSlotAvailable } from "@/lib/scheduling";
-import { appUrl, getStripe } from "@/lib/stripe";
+import { bookingConfirmed } from "@/lib/events";
+import { consumeCredit, CreditUnavailableError } from "@/lib/packages";
+import { beginBookingCheckout } from "@/lib/payments";
+import { isSlotAvailable } from "@/lib/scheduling";
+import { meetingUrlFor } from "@/lib/sessions";
 import { bookingSchema, fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
 
 class SlotTakenError extends Error {}
@@ -17,17 +21,21 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
   const client = await requireRole("CLIENT");
   const parsed = bookingSchema.safeParse(formToObject(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error);
-  const { trainerId, startsAt, notes } = parsed.data;
+  const { trainerId, startsAt, notes, format, packagePurchaseId } = parsed.data;
 
   const trainer = await db.trainerProfile.findFirst({
-    where: { id: trainerId, published: true },
-    include: { availability: true, user: { select: { name: true } } },
+    where: { id: trainerId, published: true, user: { suspendedAt: null } },
+    include: { availability: true },
   });
   if (!trainer) return { error: "This trainer is not taking bookings" };
+  if (format === "ONLINE" ? !trainer.offersOnline : !trainer.offersInPerson) {
+    return { error: "This trainer doesn't offer that type of session" };
+  }
 
   let bookingId: string;
+  let paidWithPackage = false;
   try {
-    // Serializable so two clients can't take the same slot at once.
+    // Serializable so two clients can't take the same slot (or the same credit) at once.
     const booking = await db.$transaction(
       async (tx) => {
         const now = new Date();
@@ -38,26 +46,46 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
           timezone: trainer.timezone,
           sessionMinutes: trainer.sessionMinutes,
           now,
+          minNoticeMinutes: trainer.minNoticeHours * 60,
         });
         if (!available) throw new SlotTakenError();
 
-        return tx.booking.create({
+        const credit = packagePurchaseId
+          ? await consumeCredit(tx, { purchaseId: packagePurchaseId, clientId: client.id, trainerId: trainer.id, now })
+          : null;
+
+        const created = await tx.booking.create({
           data: {
             trainerId: trainer.id,
             clientId: client.id,
             startsAt,
             endsAt: addMinutes(startsAt, trainer.sessionMinutes),
-            priceCents: trainer.sessionRateCents,
-            currency: trainer.currency,
+            format,
+            location: format === "IN_PERSON" ? trainer.defaultLocation : "",
+            priceCents: credit ? credit.perSessionCents : trainer.sessionRateCents,
+            currency: credit ? credit.currency : trainer.currency,
+            status: credit ? "CONFIRMED" : "PENDING_PAYMENT",
+            packagePurchaseId: credit ? packagePurchaseId : null,
             notes,
           },
           select: { id: true },
         });
+        if (format === "ONLINE") {
+          await tx.booking.update({
+            where: { id: created.id },
+            data: { meetingUrl: meetingUrlFor(trainer, created.id) },
+          });
+        }
+        return created;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
     bookingId = booking.id;
+    paidWithPackage = Boolean(packagePurchaseId);
   } catch (err) {
+    if (err instanceof CreditUnavailableError) {
+      return { error: "That package has no sessions left. Choose another way to pay." };
+    }
     const conflict =
       err instanceof SlotTakenError ||
       (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2034");
@@ -65,65 +93,22 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
     throw err;
   }
 
-  const stripe = getStripe();
-  if (!stripe) {
-    // No payments configured (local development): confirm straight away.
-    await db.booking.update({ where: { id: bookingId }, data: { status: "CONFIRMED" } });
-    redirect(`/dashboard?booked=${bookingId}`);
+  if (paidWithPackage) {
+    await bookingConfirmed(bookingId);
+    redirect(`/dashboard/bookings/${bookingId}?booked=1`);
   }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: client.email,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: trainer.currency,
-          unit_amount: trainer.sessionRateCents,
-          product_data: {
-            name: `${trainer.sessionMinutes}-minute session with ${trainer.user.name}`,
-          },
-        },
-      },
-    ],
-    metadata: { bookingId },
-    expires_at: Math.floor(addMinutes(new Date(), CHECKOUT_EXPIRY_MINUTES).getTime() / 1000),
-    success_url: appUrl(`/dashboard?booked=${bookingId}`),
-    cancel_url: appUrl(`/trainers/${trainer.id}?cancelled=1`),
-  });
-
-  await db.booking.update({
-    where: { id: bookingId },
-    data: { stripeCheckoutSessionId: session.id },
-  });
-  redirect(session.url!);
+  redirect(await beginBookingCheckout(bookingId));
 }
 
-export async function cancelBooking(bookingId: string) {
+export async function cancelBooking(bookingId: string, formData?: FormData) {
   const user = await requireUser();
-  await db.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: { in: ["PENDING_PAYMENT", "CONFIRMED"] },
-      startsAt: { gt: new Date() },
-      OR: [{ clientId: user.id }, { trainer: { userId: user.id } }],
-    },
-    data: { status: "CANCELLED" },
-  });
+  const reason = String(formData?.get("reason") ?? "").trim().slice(0, 300);
+  await cancelBookingAs(user, bookingId, reason);
   refresh();
 }
 
 export async function completeBooking(bookingId: string) {
   const user = await requireRole("TRAINER");
-  await db.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: "CONFIRMED",
-      startsAt: { lt: new Date() },
-      trainer: { userId: user.id },
-    },
-    data: { status: "COMPLETED" },
-  });
+  await completeBookingAs(user, bookingId);
   refresh();
 }

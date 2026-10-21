@@ -15,11 +15,11 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
   const trainerId = await requireTrainerProfileId();
   const parsed = trainerProfileSchema.safeParse(formToObject(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error);
-  const { sessionRate, ...rest } = parsed.data;
+  const { sessionRate, gender, ...rest } = parsed.data;
 
   await db.trainerProfile.update({
     where: { id: trainerId },
-    data: { ...rest, sessionRateCents: sessionRate },
+    data: { ...rest, sessionRateCents: sessionRate, user: { update: { gender } } },
   });
   refresh();
   return { ok: true };

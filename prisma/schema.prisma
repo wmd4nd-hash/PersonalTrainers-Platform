@@ -10,6 +10,14 @@ datasource db {
 enum Role {
   TRAINER
   CLIENT
+  ADMIN
+}
+
+enum Gender {
+  FEMALE
+  MALE
+  NON_BINARY
+  UNSPECIFIED
 }
 
 enum BookingStatus {
@@ -19,39 +27,129 @@ enum BookingStatus {
   COMPLETED
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role
-  createdAt    DateTime @default(now())
+enum SessionFormat {
+  IN_PERSON
+  ONLINE
+}
 
-  trainerProfile TrainerProfile?
-  bookings       Booking[]
-  assignments    ProgramAssignment[]
+enum PurchaseStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  EXHAUSTED
+  EXPIRED
+  CANCELLED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DocumentKind {
+  CERTIFICATION
+  INSURANCE
+  IDENTITY
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  passwordHash       String
+  name               String
+  role               Role
+  gender             Gender   @default(UNSPECIFIED)
+  avatarFileId       String?  @unique
+  avatarFile         StoredFile? @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  emailNotifications Boolean  @default(true)
+  /// Secret for this user's calendar (.ics) feed URL.
+  calendarToken      String   @unique @default(cuid())
+  suspendedAt        DateTime?
+  createdAt          DateTime @default(now())
+
+  trainerProfile      TrainerProfile?
+  bookings            Booking[]
+  assignments         ProgramAssignment[]
+  purchases           PackagePurchase[]
+  reviews             Review[]
+  conversations       Conversation[]
+  messages            Message[]
+  notifications       Notification[]
+  passwordResetTokens PasswordResetToken[]
+  favorites           Favorite[]
+  workoutLogs         WorkoutLog[]
+  files               StoredFile[]         @relation("FileOwner")
+  clientNotes         ClientNote[]
+  reviewedDocuments   VerificationDocument[] @relation("DocumentReviewer")
 }
 
 model TrainerProfile {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  headline          String   @default("")
-  bio               String   @default("")
-  specialties       String[]
-  city              String   @default("")
-  timezone          String   @default("UTC")
-  yearsExperience   Int      @default(0)
-  sessionRateCents  Int      @default(5000)
-  sessionMinutes    Int      @default(60)
-  currency          String   @default("usd")
-  published         Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline         String   @default("")
+  bio              String   @default("")
+  specialties      String[]
+  /// Lowercase language names, e.g. ["english", "spanish"]
+  languages        String[] @default(["english"])
+  city             String   @default("")
+  timezone         String   @default("UTC")
+  yearsExperience  Int      @default(0)
+  sessionRateCents Int      @default(5000)
+  sessionMinutes   Int      @default(60)
+  currency         String   @default("usd")
+  offersInPerson   Boolean  @default(true)
+  offersOnline     Boolean  @default(false)
+  /// Where in-person sessions happen, shown to clients after booking.
+  defaultLocation  String   @default("")
+  /// Trainer's own video link; when empty a Jitsi room is generated per booking.
+  meetingUrl       String   @default("")
+  /// Clients cancelling at least this many hours ahead get a full refund.
+  cancellationWindowHours Int @default(24)
+  /// Share of the price kept when a client cancels inside the window (0-100).
+  lateCancelFeePercent    Int @default(100)
+  minNoticeHours   Int      @default(2)
+  published        Boolean  @default(false)
 
-  availability AvailabilityWindow[]
-  bookings     Booking[]
-  programs     Program[]
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  verifiedAt         DateTime?
+
+  stripeAccountId      String? @unique
+  stripeChargesEnabled Boolean @default(false)
+  stripePayoutsEnabled Boolean @default(false)
+
+  /// Denormalised from visible reviews.
+  ratingAverage Float @default(0)
+  ratingCount   Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  availability  AvailabilityWindow[]
+  timeOff       TimeOff[]
+  bookings      Booking[]
+  programs      Program[]
+  packages      Package[]
+  purchases     PackagePurchase[]
+  reviews       Review[]
+  conversations Conversation[]
+  documents     VerificationDocument[]
+  favoritedBy   Favorite[]
+  clientNotes   ClientNote[]
 }
 
 /// A weekly recurring window, in the trainer's local timezone.
@@ -68,23 +166,247 @@ model AvailabilityWindow {
   @@index([trainerId])
 }
 
+/// A one-off block in the trainer's calendar (holiday, sick day).
+model TimeOff {
+  id        String         @id @default(cuid())
+  trainerId String
+  trainer   TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  startsAt  DateTime
+  endsAt    DateTime
+  reason    String         @default("")
+  createdAt DateTime       @default(now())
+
+  @@index([trainerId, startsAt])
+}
+
 model Booking {
+  id                      String          @id @default(cuid())
+  trainerId               String
+  trainer                 TrainerProfile  @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId                String
+  client                  User            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  startsAt                DateTime
+  endsAt                  DateTime
+  status                  BookingStatus   @default(PENDING_PAYMENT)
+  format                  SessionFormat   @default(IN_PERSON)
+  /// Video link for online sessions.
+  meetingUrl              String?
+  location                String          @default("")
+  /// Price of this session (per-session value when paid from a package).
+  priceCents              Int
+  currency                String
+  /// Platform's share of priceCents; 0 for package sessions (fee taken on the package).
+  platformFeeCents        Int             @default(0)
+  refundedCents           Int             @default(0)
+  notes                   String          @default("")
+  packagePurchaseId       String?
+  packagePurchase         PackagePurchase? @relation(fields: [packagePurchaseId], references: [id], onDelete: SetNull)
+  stripeCheckoutSessionId String?         @unique
+  stripePaymentIntentId   String?
+  cancelledAt             DateTime?
+  cancelledById           String?
+  cancellationReason      String          @default("")
+  reminderSentAt          DateTime?
+  completedAt             DateTime?
+  createdAt               DateTime        @default(now())
+
+  review Review?
+
+  @@index([trainerId, startsAt])
+  @@index([clientId, startsAt])
+  @@index([status, startsAt])
+}
+
+model Package {
+  id           String         @id @default(cuid())
+  trainerId    String
+  trainer      TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  title        String
+  description  String         @default("")
+  sessionCount Int
+  priceCents   Int
+  /// Days a purchase stays valid.
+  validDays    Int            @default(90)
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+
+  purchases PackagePurchase[]
+
+  @@index([trainerId])
+}
+
+model PackagePurchase {
   id                      String         @id @default(cuid())
+  packageId               String
+  package                 Package        @relation(fields: [packageId], references: [id], onDelete: Cascade)
   trainerId               String
   trainer                 TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
   clientId                String
   client                  User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  startsAt                DateTime
-  endsAt                  DateTime
-  status                  BookingStatus  @default(PENDING_PAYMENT)
+  sessionsTotal           Int
+  sessionsUsed            Int            @default(0)
   priceCents              Int
   currency                String
-  notes                   String         @default("")
+  platformFeeCents        Int            @default(0)
+  refundedCents           Int            @default(0)
+  status                  PurchaseStatus @default(PENDING_PAYMENT)
+  expiresAt               DateTime
   stripeCheckoutSessionId String?        @unique
+  stripePaymentIntentId   String?
   createdAt               DateTime       @default(now())
 
-  @@index([trainerId, startsAt])
-  @@index([clientId, startsAt])
+  bookings Booking[]
+
+  @@index([clientId, trainerId])
+}
+
+model Review {
+  id           String         @id @default(cuid())
+  bookingId    String         @unique
+  booking      Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  trainerId    String
+  trainer      TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId     String
+  client       User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  /// 1-5
+  rating       Int
+  comment      String         @default("")
+  trainerReply String         @default("")
+  repliedAt    DateTime?
+  /// Hidden by an admin; excluded from ratings.
+  hidden       Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+
+  @@index([trainerId, createdAt])
+}
+
+model Conversation {
+  id            String         @id @default(cuid())
+  trainerId     String
+  trainer       TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lastMessageAt DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+
+  messages Message[]
+
+  @@unique([trainerId, clientId])
+  @@index([clientId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  /// Set when the body looks like it shares contact details.
+  flagged        Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+/// In-app notification.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  title     String
+  body      String    @default("")
+  link      String    @default("")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// Every email the platform sends, for delivery and the dev outbox.
+model EmailOutbox {
+  id        String      @id @default(cuid())
+  to        String
+  subject   String
+  text      String
+  html      String      @default("")
+  status    EmailStatus @default(QUEUED)
+  error     String      @default("")
+  sentAt    DateTime?
+  createdAt DateTime    @default(now())
+
+  @@index([status, createdAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// SHA-256 of the token sent by email.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+/// Uploaded file (avatars, verification documents), stored in the database for the POC.
+model StoredFile {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation("FileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  filename    String
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  avatarOf User?                 @relation("UserAvatar")
+  document VerificationDocument?
+}
+
+model VerificationDocument {
+  id           String         @id @default(cuid())
+  trainerId    String
+  trainer      TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  kind         DocumentKind
+  fileId       String         @unique
+  file         StoredFile     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  /// Expiry printed on the certificate or policy, if any.
+  expiresOn    DateTime?
+  status       DocumentStatus @default(PENDING)
+  reviewerNote String         @default("")
+  reviewedById String?
+  reviewedBy   User?          @relation("DocumentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt   DateTime?
+  createdAt    DateTime       @default(now())
+
+  @@index([status, createdAt])
+}
+
+model Favorite {
+  id        String         @id @default(cuid())
+  clientId  String
+  client    User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  trainerId String
+  trainer   TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([clientId, trainerId])
+}
+
+/// Private notes a trainer keeps about a client.
+model ClientNote {
+  id        String         @id @default(cuid())
+  trainerId String
+  trainer   TrainerProfile @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime       @default(now())
+
+  @@index([trainerId, clientId])
 }
 
 model Program {
@@ -103,26 +425,28 @@ model Program {
 }
 
 model Workout {
-  id        String     @id @default(cuid())
+  id        String       @id @default(cuid())
   programId String
-  program   Program    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  program   Program      @relation(fields: [programId], references: [id], onDelete: Cascade)
   dayNumber Int
   title     String
-  notes     String     @default("")
+  notes     String       @default("")
   exercises Exercise[]
+  logs      WorkoutLog[]
 
   @@index([programId, dayNumber])
 }
 
 model Exercise {
-  id          String  @id @default(cuid())
+  id          String        @id @default(cuid())
   workoutId   String
-  workout     Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  workout     Workout       @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   position    Int
   name        String
   sets        Int
   reps        String
-  restSeconds Int     @default(60)
+  restSeconds Int           @default(60)
+  logs        ExerciseLog[]
 
   @@index([workoutId, position])
 }
@@ -134,6 +458,36 @@ model ProgramAssignment {
   clientId   String
   client     User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   assignedAt DateTime @default(now())
+  startsOn   DateTime?
 
   @@unique([programId, clientId])
+}
+
+/// A client's record of doing one workout.
+model WorkoutLog {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      User          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workoutId   String
+  workout     Workout       @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  completedAt DateTime      @default(now())
+  /// Rate of perceived exertion, 1-10.
+  effort      Int?
+  notes       String        @default("")
+  entries     ExerciseLog[]
+
+  @@index([clientId, completedAt])
+}
+
+model ExerciseLog {
+  id           String     @id @default(cuid())
+  workoutLogId String
+  workoutLog   WorkoutLog @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
+  exerciseId   String
+  exercise     Exercise   @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  setsDone     Int
+  reps         String     @default("")
+  weightKg     Float?
+
+  @@index([exerciseId])
 }

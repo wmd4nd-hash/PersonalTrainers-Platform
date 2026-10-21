@@ -43,13 +43,14 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
 
   const user = await db.user.findUnique({
     where: { email: parsed.data.email },
-    select: { id: true, passwordHash: true },
+    select: { id: true, passwordHash: true, role: true, suspendedAt: true },
   });
   const valid = user && (await bcrypt.compare(parsed.data.password, user.passwordHash));
   if (!valid) return { error: "Incorrect email or password" };
+  if (user.suspendedAt) return { error: "This account has been suspended. Contact support." };
 
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
 }
 
 export async function logout() {

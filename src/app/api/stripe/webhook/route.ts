@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
-import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import { handleStripeEvent } from "@/lib/webhooks";
 
 export async function POST(request: Request) {
   const stripe = getStripe();
@@ -19,23 +19,6 @@ export async function POST(request: Request) {
     return new Response("Invalid signature", { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed" || event.type === "checkout.session.expired") {
-    const session = event.data.object;
-    const bookingId = session.metadata?.bookingId;
-    if (!bookingId) return Response.json({ received: true });
-
-    const paid = event.type === "checkout.session.completed" && session.payment_status === "paid";
-    const expired = event.type === "checkout.session.expired";
-    if (paid || expired) {
-      await db.booking.updateMany({
-        where: { id: bookingId, status: "PENDING_PAYMENT" },
-        data: {
-          status: paid ? "CONFIRMED" : "CANCELLED",
-          stripeCheckoutSessionId: session.id,
-        },
-      });
-    }
-  }
-
+  await handleStripeEvent(event);
   return Response.json({ received: true });
 }

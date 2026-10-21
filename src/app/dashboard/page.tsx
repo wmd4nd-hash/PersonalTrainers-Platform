@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { cancelBooking, completeBooking } from "@/app/actions/bookings";
 import { Alert, Badge, Button, Card, PageHeader, Skeleton } from "@/components/ui";
+import { BookingReviewAction } from "./_components/booking-review-action";
 import { requireUser, type CurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -115,7 +116,9 @@ function BookingSection({
                 <Card className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{formatSlot(b.startsAt, b.trainer.timezone)}</p>
+                      <Link href={`/dashboard/bookings/${b.id}`} className="font-medium hover:underline">
+                        {formatSlot(b.startsAt, b.trainer.timezone)}
+                      </Link>
                       <Badge className={statusStyles[b.status]}>{statusLabels[b.status]}</Badge>
                     </div>
                     <p className="text-sm text-subtle">
@@ -133,6 +136,7 @@ function BookingSection({
                     {b.notes && <p className="text-sm">“{b.notes}”</p>}
                   </div>
                   <div className="flex gap-2">
+                    <BookingReviewAction booking={b} viewer={user} />
                     {canComplete && (
                       <form action={completeBooking.bind(null, b.id)}>
                         <Button variant="secondary">Mark completed</Button>

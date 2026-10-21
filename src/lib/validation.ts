@@ -25,20 +25,33 @@ function isTimezone(value: string) {
   }
 }
 
-export const trainerProfileSchema = z.object({
-  headline: z.string().trim().max(120),
-  bio: z.string().trim().max(2000),
-  specialties: z
+const checkbox = z.literal("on").optional().transform((v) => v === "on");
+
+const commaList = (max: number) =>
+  z
     .string()
+    .default("")
     .transform((s) =>
-      [...new Set(s.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean))].slice(0, 10),
-    ),
-  city: z.string().trim().max(80),
-  timezone: z.string().trim().refine(isTimezone, "Unknown timezone"),
-  yearsExperience: z.coerce.number().int().min(0).max(60),
-  sessionRate: z
-    .string()
-    .transform((s, ctx) => {
+      [...new Set(s.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean))].slice(0, max),
+    );
+
+const optionalUrl = z
+  .string()
+  .trim()
+  .max(300)
+  .refine((v) => v === "" || /^https:\/\/\S+$/.test(v), "Use a full https:// link");
+
+export const trainerProfileSchema = z
+  .object({
+    headline: z.string().trim().max(120),
+    bio: z.string().trim().max(2000),
+    specialties: commaList(10),
+    languages: commaList(8),
+    gender: z.enum(["FEMALE", "MALE", "NON_BINARY", "UNSPECIFIED"]).default("UNSPECIFIED"),
+    city: z.string().trim().max(80),
+    timezone: z.string().trim().refine(isTimezone, "Unknown timezone"),
+    yearsExperience: z.coerce.number().int().min(0).max(60),
+    sessionRate: z.string().transform((s, ctx) => {
       const cents = parseMoneyToCents(s);
       if (cents === null || cents < 100) {
         ctx.addIssue({ code: "custom", message: "Enter a price of at least 1.00" });
@@ -46,9 +59,20 @@ export const trainerProfileSchema = z.object({
       }
       return cents;
     }),
-  sessionMinutes: z.coerce.number().int().min(15).max(240),
-  published: z.literal("on").optional().transform((v) => v === "on"),
-});
+    sessionMinutes: z.coerce.number().int().min(15).max(240),
+    offersInPerson: checkbox,
+    offersOnline: checkbox,
+    defaultLocation: z.string().trim().max(200).default(""),
+    meetingUrl: optionalUrl.default(""),
+    cancellationWindowHours: z.coerce.number().int().min(0).max(168),
+    lateCancelFeePercent: z.coerce.number().int().min(0).max(100),
+    minNoticeHours: z.coerce.number().int().min(0).max(72),
+    published: checkbox,
+  })
+  .refine((p) => p.offersInPerson || p.offersOnline, {
+    message: "Offer in-person sessions, online sessions or both",
+    path: ["offersOnline"],
+  });
 
 const timeOfDay = z.string().transform((s, ctx) => {
   const minute = parseTimeOfDay(s);
@@ -70,6 +94,12 @@ export const availabilityWindowSchema = z
 export const bookingSchema = z.object({
   trainerId: z.string().min(1),
   startsAt: z.iso.datetime().transform((s) => new Date(s)),
+  format: z.enum(["IN_PERSON", "ONLINE"]).default("IN_PERSON"),
+  /** Pay with a session from this package purchase instead of by card. */
+  packagePurchaseId: z
+    .string()
+    .optional()
+    .transform((v) => v || undefined),
   notes: z.string().trim().max(500).default(""),
 });
 
