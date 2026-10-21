@@ -19,6 +19,11 @@ export function LoginForm() {
       <Field label="Password" name="password" errors={errors.password}>
         <Input id="password" name="password" type="password" autoComplete="current-password" required />
       </Field>
+      <p className="-mt-2 text-right text-sm">
+        <Link href="/forgot-password" className="font-medium text-brand">
+          Forgot password?
+        </Link>
+      </p>
       <SubmitButton className="w-full" pendingText="Logging in…">
         Log in
       </SubmitButton>

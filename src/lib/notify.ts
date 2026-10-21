@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "./db";
-import { appUrl } from "./stripe";
+import type { EmailContent } from "./email/layout";
+import { notificationEmail } from "./email/templates";
+import { deliverSoon, emailEnv } from "./email/transport";
 
 export type NotifyInput = {
   userId: string;
@@ -12,13 +14,18 @@ export type NotifyInput = {
   link?: string;
   /** Also email the user (respects their email preference). */
   email?: boolean;
+  /**
+   * Builds a tailored email (see lib/email/templates.ts). Without it the email
+   * is a branded version of title, body and link.
+   */
+  emailContent?: (recipient: { name: string; email: string }) => EmailContent;
 };
 
 /** Records an in-app notification and, if asked, queues an email. */
 export async function notify(input: NotifyInput) {
   const user = await db.user.findUnique({
     where: { id: input.userId },
-    select: { email: true, name: true, emailNotifications: true },
+    select: { email: true, name: true, emailNotifications: true, suspendedAt: true },
   });
   if (!user) return;
 
@@ -32,18 +39,26 @@ export async function notify(input: NotifyInput) {
     },
   });
 
-  if (input.email && user.emailNotifications) {
-    const lines = [`Hi ${user.name},`, "", input.body ?? input.title];
-    if (input.link) lines.push("", appUrl(input.link));
-    await queueEmail({ to: user.email, subject: input.title, text: lines.join("\n") });
+  if (input.email && user.emailNotifications && !user.suspendedAt) {
+    const recipient = { name: user.name, email: user.email };
+    const content =
+      input.emailContent?.(recipient) ??
+      notificationEmail({ recipientName: user.name, title: input.title, body: input.body, link: input.link }, emailEnv());
+    await queueEmail({ to: user.email, ...content });
   }
 }
 
 export type EmailInput = { to: string; subject: string; text: string; html?: string };
 
-/** Adds an email to the outbox. Delivery happens in `deliverQueuedEmails`. */
+/**
+ * Adds an email to the outbox and schedules delivery for after the current
+ * response. The deliver-email cron sends anything left behind.
+ */
 export async function queueEmail(email: EmailInput) {
-  await db.emailOutbox.create({
+  const row = await db.emailOutbox.create({
     data: { to: email.to, subject: email.subject, text: email.text, html: email.html ?? "" },
+    select: { id: true },
   });
+  deliverSoon();
+  return row.id;
 }

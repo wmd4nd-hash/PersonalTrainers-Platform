@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Skeleton } from "@/components/ui";
@@ -22,6 +21,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
 
 async function DashboardNav() {
   const user = await requireUser();
-  if (user.role === "ADMIN") redirect("/admin");
+  // Admins can use the account pages here (settings, notifications); the other
+  // dashboard pages check the role themselves and send admins to /admin.
   return <SidebarNav heading={headings[user.role]} links={dashboardNav[user.role]} />;
 }

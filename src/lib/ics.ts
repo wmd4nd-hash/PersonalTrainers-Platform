@@ -44,7 +44,6 @@ function octets(value: string): number {
 }
 
 // Control characters other than tab and line breaks are not allowed in content lines.
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
 /** Escapes a TEXT value (SUMMARY, DESCRIPTION, LOCATION…). */
