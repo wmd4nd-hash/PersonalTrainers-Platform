@@ -7,7 +7,7 @@ import { dashboardNav } from "@/lib/nav";
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="grid gap-8 md:grid-cols-[190px_1fr]">
-      <aside>
+      <aside className="min-w-0">
         <Suspense fallback={<Skeleton className="h-40" />}>
           <AdminNav />
         </Suspense>

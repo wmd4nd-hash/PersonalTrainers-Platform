@@ -36,18 +36,18 @@ export function ReviewCard({
 }) {
   return (
     <article className="space-y-3">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar name={authorName} size={36} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{authorName}</p>
-            <p className="text-xs text-subtle">
+      <header className="flex items-start gap-3">
+        <Avatar name={authorName} size={36} />
+        <div className="min-w-0 space-y-0.5">
+          <p className="truncate text-sm font-medium">{authorName}</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-subtle">
+            <StarRating value={review.rating} size="sm" label={`${review.rating} out of 5 stars`} />
+            <span>
               <time dateTime={review.createdAt.toISOString()}>{formatReviewDate(review.createdAt, timezone)}</time>
               {meta && <> · {meta}</>}
-            </p>
+            </span>
           </div>
         </div>
-        <StarRating value={review.rating} size="sm" label={`${review.rating} out of 5 stars`} />
       </header>
       {badges && <div className="flex flex-wrap gap-2">{badges}</div>}
       {review.comment ? (
