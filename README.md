@@ -40,7 +40,7 @@ The seed creates three trainers (`maya@example.com`, `diego@example.com`, `aiko@
 
 ## Payments
 
-Payments are optional during development. If `STRIPE_SECRET_KEY` is empty, bookings are confirmed straight away without payment.
+Payments are optional during development. If `STRIPE_SECRET_KEY` is empty, payments are simulated end to end: bookings and packages are confirmed straight away, "Set up payouts" connects a simulated trainer account, cancellations record refunds, and earnings, payment history and receipts all work.
 
 To test real checkout:
 
@@ -49,15 +49,17 @@ To test real checkout:
    ```bash
    stripe listen --forward-to localhost:3000/api/stripe/webhook
    ```
-3. Copy the `whsec_…` secret it prints into `STRIPE_WEBHOOK_SECRET`.
+3. Copy the `whsec_…` secret it prints into `STRIPE_WEBHOOK_SECRET`. The CLI forwards Connect events too.
 
 How a paid booking works:
 
 1. The client picks a slot. The booking is created as **Awaiting payment** inside a serializable transaction, so two clients can't take the same slot.
 2. The client is sent to Stripe Checkout. The session expires after 31 minutes, and the slot is held for 35 minutes.
 3. `checkout.session.completed` confirms the booking. `checkout.session.expired` cancels it and frees the slot.
+4. If the trainer has finished payouts setup (Stripe Connect Express, from **Payouts** in their dashboard), the payment is a destination charge: it goes to the trainer's account and the platform fee comes back to the platform. Otherwise the platform collects it and holds the trainer's share.
+5. Cancelling refunds what the trainer's cancellation policy allows, once. Refunds of destination charges reverse the transfer, and return the platform fee only when the payment is refunded in full.
 
-In production, add a webhook endpoint in the Stripe dashboard pointing at `https://<your-domain>/api/stripe/webhook` for those two events.
+In production, add a webhook endpoint in the Stripe dashboard pointing at `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `charge.refunded`, and a Connect endpoint at the same URL for `account.updated` and `account.application.deauthorized` (its secret goes in `STRIPE_CONNECT_WEBHOOK_SECRET`).
 
 ## Scripts
 
@@ -107,11 +109,11 @@ src/
 | `APP_URL` | Yes in production | Public URL, used for Stripe redirect URLs |
 | `STRIPE_SECRET_KEY` | No | Enables paid bookings |
 | `STRIPE_WEBHOOK_SECRET` | With Stripe | Verifies webhook signatures |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | With Stripe in production | Verifies the Connect endpoint's signatures |
 
 ## Known gaps and next steps
 
-- **Refunds:** cancelling a paid booking doesn't refund it yet. Add a Stripe refund in `cancelBooking`, or pay trainers through Stripe Connect.
-- **Trainer payouts:** all payments go to the platform's Stripe account. Use Stripe Connect to pay trainers directly and take a platform fee.
+- **Held earnings:** payments taken before a trainer finishes payouts setup stay in the platform's Stripe account. Paying them out needs a manual transfer (or a job that creates transfers).
 - **Email:** there are no booking confirmations, reminders or password resets yet.
 - **Currency:** each trainer has one currency (defaults to USD). It can only be changed in the database for now.
 - **Messaging, reviews and progress tracking** between trainers and clients.
