@@ -104,7 +104,7 @@ async function Verification() {
           {statusIntro[status.status]}
           {status.status === "VERIFIED" && ` ${verifiedExplanation(status.verifiedAt)}.`}
         </p>
-        <ul className="grid gap-2 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {requirements.map(({ kind, state }) => (
             <li key={kind} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2 text-sm">
               <span
@@ -145,8 +145,8 @@ async function Verification() {
               const expired = isDocumentExpired(doc.expiresOn, now);
               return (
                 <li key={doc.id}>
-                  <Card className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 space-y-1">
+                  <Card className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{documentKindLabels[doc.kind]}</span>
                         <DocumentStatusBadge status={doc.status} />
@@ -178,7 +178,7 @@ async function Verification() {
                       )}
                     </div>
                     {doc.status === "PENDING" && (
-                      <form action={deleteDocument.bind(null, doc.id)}>
+                      <form action={deleteDocument.bind(null, doc.id)} className="-mr-2 -mt-1 shrink-0">
                         <SubmitButton
                           variant="ghost"
                           pendingText="Deleting…"

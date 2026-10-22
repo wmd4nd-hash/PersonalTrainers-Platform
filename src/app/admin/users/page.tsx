@@ -60,7 +60,7 @@ async function Users({ searchParams }: Pick<PageProps<"/admin/users">, "searchPa
 
   return (
     <>
-      <form className="mb-6 grid gap-3 sm:grid-cols-[1fr_180px_auto]" role="search">
+      <form className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto]" role="search">
         <Field label="Name or email" name="q">
           <Input id="q" name="q" type="search" defaultValue={q} placeholder="e.g. maya or @example.com" />
         </Field>

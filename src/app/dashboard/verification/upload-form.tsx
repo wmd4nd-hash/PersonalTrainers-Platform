@@ -43,7 +43,7 @@ export function UploadDocumentForm({ suggestedKind }: { suggestedKind: string })
     <form action={action} className="space-y-4">
       {state.ok && <Alert tone="success">Thanks! We&apos;ll review your document and let you know.</Alert>}
       {state.error && <Alert>{state.error}</Alert>}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Document type" name="kind" errors={errors.kind}>
           <Select id="kind" name="kind" value={kind} onChange={(e) => setKind(e.target.value)} required>
             <option value="CERTIFICATION">Certification</option>

@@ -9,7 +9,7 @@ const headings = { TRAINER: "Trainer", CLIENT: "Client", ADMIN: "Admin" } as con
 
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   return (
-    <div className="grid gap-8 md:grid-cols-[190px_1fr]">
+    <div className="grid grid-cols-1 gap-8 md:grid-cols-[190px_1fr]">
       <aside>
         <Suspense fallback={<Skeleton className="h-40" />}>
           <DashboardNav />

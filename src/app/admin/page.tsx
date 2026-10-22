@@ -124,7 +124,7 @@ async function Overview() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section aria-labelledby="signups">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 id="signups" className="font-semibold">

@@ -92,7 +92,7 @@ async function Queue() {
               const expired = isDocumentExpired(doc.expiresOn, now);
               return (
                 <li key={doc.id} aria-label={label}>
-                  <Card className="grid gap-5 lg:grid-cols-[1fr_320px]">
+                  <Card className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="min-w-0 space-y-3">
                       <div className="flex items-start gap-3">
                         <Avatar name={trainer.user.name} fileId={trainer.user.avatarFileId} size={40} />
