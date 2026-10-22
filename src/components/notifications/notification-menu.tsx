@@ -2,22 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { markAllNotificationsRead, openNotification } from "@/app/actions/notifications";
 import { cx } from "../ui";
+import type { NotificationSummary } from "./summary";
 
-export type BellItem = {
-  id: string;
-  title: string;
-  body: string;
-  read: boolean;
-  /** Already formatted on the server, e.g. "5 min ago". */
-  time: string;
-  createdAt: string;
-};
+const SUMMARY_URL = "/dashboard/notifications/summary";
+const POLL_MS = 60_000;
 
-export function NotificationMenu({ unread, items }: { unread: number; items: BellItem[] }) {
+export function NotificationMenu({ initial }: { initial: NotificationSummary }) {
   const pathname = usePathname();
   // Remember which page the panel was opened on: navigating closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
@@ -25,6 +19,46 @@ export function NotificationMenu({ unread, items }: { unread: number; items: Bel
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // The header isn't re-rendered on client navigations, so the bell fetches
+  // its own summary and shows whichever copy is newest.
+  const [fetched, setFetched] = useState<NotificationSummary | null>(null);
+  const summary = fetched && fetched.asOf > initial.asOf ? fetched : initial;
+  const { unread, items } = summary;
+
+  const reload = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const response = await fetch(SUMMARY_URL, { cache: "no-store", signal });
+      if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) return;
+      const next = (await response.json()) as NotificationSummary;
+      setFetched((current) => (current && current.asOf >= next.asOf ? current : next));
+    } catch {
+      // Offline or aborted: keep what we have.
+    }
+  }, []);
+
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    const controller = new AbortController();
+    void reload(controller.signal);
+    return () => controller.abort();
+  }, [pathname, reload]);
+
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    const timer = setInterval(refreshIfVisible, POLL_MS);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [reload]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,6 +79,11 @@ export function NotificationMenu({ unread, items }: { unread: number; items: Bel
     };
   }, [open]);
 
+  async function markAllRead() {
+    await markAllNotificationsRead();
+    await reload();
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -53,7 +92,10 @@ export function NotificationMenu({ unread, items }: { unread: number; items: Bel
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        onClick={() => setOpenOn(open ? null : pathname)}
+        onClick={() => {
+          if (!open) void reload();
+          setOpenOn(open ? null : pathname);
+        }}
         className="relative flex size-9 items-center justify-center rounded-lg hover:bg-muted"
       >
         <BellIcon />
@@ -78,7 +120,7 @@ export function NotificationMenu({ unread, items }: { unread: number; items: Bel
           <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
             <h2 className="text-sm font-semibold">Notifications</h2>
             {unread > 0 && (
-              <form action={markAllNotificationsRead}>
+              <form action={markAllRead}>
                 <PendingButton className="text-xs font-medium text-brand hover:underline" pendingText="Marking…">
                   Mark all as read
                 </PendingButton>
