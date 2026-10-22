@@ -103,6 +103,7 @@ async function Conversation({ params }: Pick<PageProps<"/dashboard/messages/[id]
       </Card>
 
       <ConversationThread
+        key={conversation.id}
         conversationId={conversation.id}
         initialMessages={page.messages}
         initialHasMore={page.hasMore}
