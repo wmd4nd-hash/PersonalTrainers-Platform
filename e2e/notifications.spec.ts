@@ -6,9 +6,10 @@ async function bookFirstSlot(page: Page, trainerName: string) {
   await page.goto("/trainers");
   await page.getByRole("link", { name: new RegExp(trainerName) }).first().click();
   await expect(page.getByRole("heading", { name: "Book a session" })).toBeVisible();
-  await page.locator("form button[type=button]").first().click();
-  await page.getByRole("button", { name: /Book/ }).click();
-  await expect(page).toHaveURL(/\/dashboard\/bookings\//);
+  const form = page.locator("form", { has: page.getByLabel("Day") });
+  await form.locator("button[type=button]").first().click();
+  await form.getByRole("button", { name: /^Book/ }).click();
+  await expect(page).toHaveURL(/\/dashboard\/bookings\/[^/?]+/);
 }
 
 async function logout(page: Page) {

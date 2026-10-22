@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { Alert, Card, PageHeader, Skeleton } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasRedactedSecrets } from "@/lib/email/redact";
 import { firstParam } from "@/lib/validation/notifications";
 import { resendEmail } from "../actions";
 import { EmailStatusBadge, formatUtc } from "../status-badge";
@@ -31,20 +32,29 @@ async function OutboxEmail({ params, searchParams }: PageProps<"/admin/outbox/[i
   const resent = firstParam((await searchParams).resent) === "1";
   const email = id.length <= 64 ? await db.emailOutbox.findUnique({ where: { id } }) : null;
   if (!email) notFound();
+  const redacted = hasRedactedSecrets(email.text);
 
   return (
     <div className="space-y-4">
       <PageHeader
         title={email.subject}
         action={
-          <form action={resendEmail.bind(null, email.id)}>
-            <SubmitButton variant="secondary" pendingText="Queuing…">
-              Resend
-            </SubmitButton>
-          </form>
+          redacted ? undefined : (
+            <form action={resendEmail.bind(null, email.id)}>
+              <SubmitButton variant="secondary" pendingText="Queuing…">
+                Resend
+              </SubmitButton>
+            </form>
+          )
         }
       />
       {resent && <Alert tone="success">A copy was queued for sending. This is the new copy.</Alert>}
+      {redacted && (
+        <p className="rounded-lg border border-line bg-muted px-4 py-3 text-sm text-subtle">
+          The reset link was removed from this copy after it was delivered, so it can&apos;t be reused or resent. If
+          the person still needs it, ask them to request a new link from the Forgot password page.
+        </p>
+      )}
 
       <Card>
         <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[auto_1fr]">

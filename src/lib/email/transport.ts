@@ -6,6 +6,7 @@ import { db } from "../db";
 import { site } from "../site";
 import { appUrl } from "../stripe";
 import type { EmailEnv } from "./layout";
+import { redactSecrets } from "./redact";
 
 /**
  * Email delivery. With SMTP_URL set, mail goes out over SMTP; without it the
@@ -92,7 +93,14 @@ async function deliverNext(): Promise<Outcome | null> {
       }
       await tx.emailOutbox.update({
         where: { id: email.id },
-        data: { status: "SENT", sentAt: new Date(), error: "" },
+        data: {
+          status: "SENT",
+          sentAt: new Date(),
+          error: "",
+          // Delivered for real: the outbox copy no longer needs live reset links.
+          // In log mode the outbox is the only way to read them, so they stay.
+          ...(emailMode() === "smtp" && { text: redactSecrets(email.text), html: redactSecrets(email.html) }),
+        },
       });
       return "sent";
     },

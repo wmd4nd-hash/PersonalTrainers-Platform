@@ -9,7 +9,8 @@ const headings = { TRAINER: "Trainer", CLIENT: "Client", ADMIN: "Admin" } as con
 export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   return (
     <div className="grid gap-8 md:grid-cols-[190px_1fr]">
-      <aside>
+      {/* min-w-0: on phones the nav scrolls sideways instead of widening the page. */}
+      <aside className="min-w-0">
         <Suspense fallback={<Skeleton className="h-40" />}>
           <DashboardNav />
         </Suspense>
@@ -21,7 +22,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
 
 async function DashboardNav() {
   const user = await requireUser();
-  // Admins can use the account pages here (settings, notifications); the other
-  // dashboard pages check the role themselves and send admins to /admin.
+  // Admins use the account pages here (settings, notifications) with the admin
+  // nav. Pages meant only for trainers or clients check the role themselves.
   return <SidebarNav heading={headings[user.role]} links={dashboardNav[user.role]} />;
 }

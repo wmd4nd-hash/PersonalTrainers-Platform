@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { hasRedactedSecrets } from "@/lib/email/redact";
 import { deliverQueuedEmails } from "@/lib/email/transport";
 import { queueEmail } from "@/lib/notify";
 import { idSchema } from "@/lib/validation/notifications";
@@ -14,6 +15,8 @@ export async function resendEmail(emailId: string) {
   const id = idSchema.safeParse(emailId);
   const original = id.success ? await db.emailOutbox.findUnique({ where: { id: id.data } }) : null;
   if (!original) redirect("/admin/outbox");
+  // A delivered reset email no longer holds a working link; resending it would send a dead one.
+  if (hasRedactedSecrets(original.text)) redirect(`/admin/outbox/${original.id}`);
 
   const copyId = await queueEmail({
     to: original.to,
