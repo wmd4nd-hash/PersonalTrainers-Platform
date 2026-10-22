@@ -224,60 +224,64 @@ export function ConversationThread({
       aria-label={`Conversation with ${otherName}`}
       className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface"
     >
+      <h2 className="sr-only">Messages</h2>
       <div className="relative">
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="h-[58dvh] min-h-72 overflow-y-auto overscroll-contain px-3 pb-4 sm:px-5"
+          className="h-[50dvh] min-h-64 overflow-y-auto overscroll-contain px-3 pb-4 sm:h-[58dvh] sm:px-5"
         >
-          {hasMore && (
-            <div className="pt-4 text-center">
-              <Button
-                type="button"
-                variant="secondary"
-                className="px-3 py-1 text-xs"
-                onClick={loadEarlier}
-                disabled={loadingEarlier}
-              >
-                {loadingEarlier ? "Loading…" : "Load earlier messages"}
-              </Button>
-              {earlierFailed && (
-                <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
-                  Couldn&apos;t load earlier messages. Try again.
-                </p>
-              )}
-            </div>
-          )}
-
-          {optimistic.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center">
-              <p className="font-medium">No messages yet</p>
-              <p className="max-w-sm text-sm text-subtle">{emptyHint}</p>
-            </div>
-          ) : (
-            <div role="log" aria-label={`Messages with ${otherName}`}>
-              {groups.map((group) => (
-                <section key={group.key} aria-label={dayLabel(group.date, now, timeZone)}>
-                  <h3 className="sticky top-0 z-10 flex justify-center pt-4 pb-2">
-                    <span className="rounded-full border border-line bg-surface px-3 py-0.5 text-xs font-medium text-subtle">
-                      {dayLabel(group.date, now, timeZone)}
-                    </span>
-                  </h3>
-                  <ol className="space-y-3">
-                    {group.items.map((message) => (
-                      <MessageItem
-                        key={message.id}
-                        message={message}
-                        otherName={otherName}
-                        timeZone={timeZone}
-                        seen={message === last && Boolean(lastSeen)}
-                      />
-                    ))}
-                  </ol>
-                </section>
-              ))}
-            </div>
-          )}
+          {/* Short threads sit at the bottom, next to the composer, like a chat app. */}
+          <div className="flex min-h-full flex-col justify-end">
+            {hasMore && (
+              <div className="pt-4 text-center">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="px-3 py-1 text-xs"
+                  onClick={loadEarlier}
+                  disabled={loadingEarlier}
+                >
+                  {loadingEarlier ? "Loading…" : "Load earlier messages"}
+                </Button>
+                {earlierFailed && (
+                  <p role="alert" className="mt-2 text-xs text-red-600 dark:text-red-400">
+                    Couldn&apos;t load earlier messages. Try again.
+                  </p>
+                )}
+              </div>
+            )}
+  
+            {optimistic.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
+                <p className="font-medium">No messages yet</p>
+                <p className="max-w-sm text-sm text-subtle">{emptyHint}</p>
+              </div>
+            ) : (
+              <div role="log" aria-label={`Messages with ${otherName}`}>
+                {groups.map((group) => (
+                  <section key={group.key} aria-label={dayLabel(group.date, now, timeZone)}>
+                    <h3 className="sticky top-0 z-10 flex justify-center pt-4 pb-2">
+                      <span className="rounded-full border border-line bg-surface px-3 py-0.5 text-xs font-medium text-subtle">
+                        {dayLabel(group.date, now, timeZone)}
+                      </span>
+                    </h3>
+                    <ol className="space-y-3">
+                      {group.items.map((message) => (
+                        <MessageItem
+                          key={message.id}
+                          message={message}
+                          otherName={otherName}
+                          timeZone={timeZone}
+                          seen={message === last && Boolean(lastSeen)}
+                        />
+                      ))}
+                    </ol>
+                  </section>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {showNewBelow && (

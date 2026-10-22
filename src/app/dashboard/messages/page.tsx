@@ -5,7 +5,13 @@ import { Avatar } from "@/components/avatar";
 import { Alert, Card, PageHeader, Skeleton, cx } from "@/components/ui";
 import { requireUser, type CurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { conversationPath, listClientsToMessage, listConversations, type InboxItem } from "@/lib/messaging";
+import {
+  INBOX_LIMIT,
+  conversationPath,
+  listClientsToMessage,
+  listConversations,
+  type InboxItem,
+} from "@/lib/messaging";
 import { InboxTime } from "./_components/inbox-time";
 import { StartConversationForm } from "./_components/start-conversation-form";
 import { previewText } from "./_lib/format";
@@ -57,6 +63,9 @@ async function Inbox({ searchParams }: Pick<PageProps<"/dashboard/messages">, "s
             <InboxRow key={item.id} item={item} serverNow={now.toISOString()} />
           ))}
         </ul>
+      )}
+      {conversations.length >= INBOX_LIMIT && (
+        <p className="text-xs text-subtle">Showing your {INBOX_LIMIT} most recent conversations.</p>
       )}
     </div>
   );

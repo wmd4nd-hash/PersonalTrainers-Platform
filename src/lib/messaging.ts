@@ -1,9 +1,9 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
-import type { BookingStatus } from "@/generated/prisma/client";
 import { containsContactDetails } from "./contact-detection";
 import { db } from "./db";
 import { messageSent } from "./events";
+import { PAYMENT_HOLD_MINUTES } from "./scheduling";
 
 /**
  * Data access for client-trainer conversations. Every function that takes a
@@ -12,6 +12,8 @@ import { messageSent } from "./events";
 
 type Tx = Prisma.TransactionClient;
 
+/** Most conversations listed in the inbox. */
+export const INBOX_LIMIT = 100;
 /** Messages loaded per page of a thread. */
 export const MESSAGE_PAGE_SIZE = 50;
 /** Each user may send this many messages per rolling minute. */
@@ -344,7 +346,7 @@ export async function listConversations(userId: string): Promise<InboxItem[]> {
   const rows = await db.conversation.findMany({
     where: { AND: [participantWhere(userId), { messages: { some: {} } }] },
     orderBy: { lastMessageAt: "desc" },
-    take: 100,
+    take: INBOX_LIMIT,
     include: {
       ...conversationInclude,
       messages: { orderBy: newestFirst, take: 1, select: { body: true, senderId: true, createdAt: true } },
@@ -373,14 +375,18 @@ export function listUpcomingBookings(
   conversation: { trainerId: string; clientId: string },
   { viewerIsClient, now }: { viewerIsClient: boolean; now: Date },
 ) {
-  // Trainers don't see bookings that are still waiting for the client to pay.
-  const statuses: BookingStatus[] = viewerIsClient ? ["CONFIRMED", "PENDING_PAYMENT"] : ["CONFIRMED"];
   return db.booking.findMany({
     where: {
       trainerId: conversation.trainerId,
       clientId: conversation.clientId,
-      status: { in: statuses },
       endsAt: { gt: now },
+      OR: [
+        { status: "CONFIRMED" },
+        // The client also sees a booking they're paying for, while its checkout hold lasts.
+        ...(viewerIsClient
+          ? [{ status: "PENDING_PAYMENT" as const, createdAt: { gt: new Date(now.getTime() - PAYMENT_HOLD_MINUTES * 60_000) } }]
+          : []),
+      ],
     },
     orderBy: { startsAt: "asc" },
     take: 3,

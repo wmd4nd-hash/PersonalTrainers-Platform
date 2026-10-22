@@ -9,8 +9,9 @@ async function newPerson(browser: Browser) {
 
 async function signUpClient(page: Page, firstName: string) {
   const name = `${firstName} ${Math.floor(Math.random() * 1e6)}`;
-  await signup(page, { name, email: uniqueEmail(firstName.toLowerCase()), role: "CLIENT" });
-  return name;
+  const email = uniqueEmail(firstName.toLowerCase());
+  await signup(page, { name, email, role: "CLIENT" });
+  return { name, email };
 }
 
 async function openTrainerProfile(page: Page, trainerName: string) {
@@ -20,7 +21,7 @@ async function openTrainerProfile(page: Page, trainerName: string) {
 }
 
 test("client messages a trainer and they reply to each other", async ({ page: client, browser }) => {
-  const clientName = await signUpClient(client, "Ava");
+  const { name: clientName } = await signUpClient(client, "Ava");
 
   await openTrainerProfile(client, "Maya Okafor");
   await client.getByRole("button", { name: "Message" }).click();
@@ -66,7 +67,7 @@ test("client messages a trainer and they reply to each other", async ({ page: cl
 });
 
 test("a message with a phone number is sent with a protection notice", async ({ page: client, browser }) => {
-  const clientName = await signUpClient(client, "Noah");
+  const { name: clientName } = await signUpClient(client, "Noah");
   await openTrainerProfile(client, "Diego Ramírez");
   await client.getByRole("button", { name: "Message" }).click();
   await expect(client).toHaveURL(/\/dashboard\/messages\/\w+/);
@@ -121,4 +122,56 @@ test("people outside a conversation can't open it", async ({ page: client, brows
   const api = await stranger.request.get(`/api/messages/${conversationId}?since=${new Date().toISOString()}`);
   expect(api.status()).toBe(404);
   await stranger.context().close();
+});
+
+test("a trainer can message a client who booked with them", async ({ page: client, browser }) => {
+  const { name: clientName, email: clientEmail } = await signUpClient(client, "Zoe");
+  await openTrainerProfile(client, "Maya Okafor");
+  await client.locator("form button[type=button]").first().click();
+  await client.getByRole("button", { name: /Book/ }).click();
+  await expect(client).toHaveURL(/\/dashboard\/bookings\//);
+
+  const trainer = await newPerson(browser);
+  await login(trainer, "maya@example.com");
+  await trainer.goto("/dashboard/messages");
+  await trainer.getByLabel("Message a client").selectOption({ label: `${clientName} (${clientEmail})` });
+  await trainer.getByRole("button", { name: "Start conversation" }).click();
+  await expect(trainer).toHaveURL(/\/dashboard\/messages\/\w+/);
+  // The booking shows above the thread.
+  await expect(trainer.getByRole("heading", { name: "Upcoming sessions" })).toBeVisible();
+  await expect(trainer.getByRole("link", { name: /GMT|BST|UTC/ })).toBeVisible();
+
+  const hello = "Thanks for booking! Anything I should know before our first session?";
+  await trainer.getByLabel(`Message ${clientName}`).fill(hello);
+  await trainer.keyboard.press("Enter");
+  await expect(trainer.getByRole("log").getByText(hello)).toBeVisible();
+  await trainer.context().close();
+
+  // The client sees an unread conversation in their inbox.
+  await client.goto("/dashboard/messages");
+  await expect(client.getByRole("banner").getByRole("link", { name: "Messages, 1 unread" })).toBeVisible();
+  const row = client.getByRole("link", { name: /Maya Okafor/ });
+  await expect(row).toContainText(hello.slice(0, 30));
+  await expect(row).toContainText("1 unread");
+});
+
+test("sending is paused after 20 messages in a minute", async ({ page: client }) => {
+  await signUpClient(client, "Eli");
+  await openTrainerProfile(client, "Sofia Almeida");
+  await client.getByRole("button", { name: "Message" }).click();
+  await expect(client).toHaveURL(/\/dashboard\/messages\/\w+/);
+
+  const box = client.getByLabel("Message Sofia Almeida");
+  for (let i = 1; i <= 20; i++) {
+    await box.fill(`Quick question ${i}`);
+    await box.press("Enter");
+    await expect(client.getByRole("log").getByText(new RegExp(`Quick question ${i}$`))).toBeVisible();
+  }
+  // Wait until all twenty are stored before trying the twenty-first.
+  await expect(client.getByText("Sending…")).toHaveCount(0);
+  await box.fill("One more thing");
+  await box.press("Enter");
+  await expect(client.getByRole("alert").filter({ hasText: "sending messages very quickly" })).toBeVisible();
+  // The unsent text is given back so nothing is lost.
+  await expect(box).toHaveValue("One more thing");
 });
