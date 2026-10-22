@@ -6,9 +6,19 @@ async function bookFirstSlot(page: Page, trainerName: string) {
   await page.goto("/trainers");
   await page.getByRole("link", { name: new RegExp(trainerName) }).first().click();
   await expect(page.getByRole("heading", { name: "Book a session" })).toBeVisible();
-  const form = page.locator("form", { has: page.getByLabel("Day") });
-  await form.locator("button[type=button]").first().click();
-  await form.getByRole("button", { name: /^Book/ }).click();
+
+  // Works with the original form (a "Day" select) and with the scheduling
+  // feature's day strip, the same way e2e/helpers.ts chooseBookingSlot does.
+  const dayStrip = page.getByRole("radio", { name: /, \d+ free times?$/ });
+  if (await dayStrip.count()) {
+    await dayStrip.first().locator("xpath=..").click();
+    await page.locator("button[aria-pressed]").first().click();
+    const card = page.getByRole("radio", { name: /Pay by card/ });
+    if (await card.count()) await card.check();
+  } else {
+    await page.locator("form", { has: page.getByLabel("Day") }).locator("button[type=button]").first().click();
+  }
+  await page.getByRole("button", { name: /^Book (and pay|with package)/ }).click();
   await expect(page).toHaveURL(/\/dashboard\/bookings\/[^/?]+/);
 }
 
