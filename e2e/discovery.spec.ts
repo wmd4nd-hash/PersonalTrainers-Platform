@@ -81,7 +81,15 @@ test.describe("matching quiz", () => {
     await page.getByRole("button", { name: "See my matches" }).click();
 
     // The results URL carries the answers, so it can be shared.
-    await expect(page).toHaveURL(/\/match\/results\?goal=running&format=online&budget=100&time=mornings&language=spanish&tz=America%2FNew_York$/);
+    await expect(page).toHaveURL(/\/match\/results\?/);
+    expect(Object.fromEntries(new URL(page.url()).searchParams)).toEqual({
+      goal: "running",
+      format: "online",
+      budget: "100",
+      time: "mornings",
+      language: "spanish",
+      tz: "America/New_York",
+    });
     await expect(page.getByRole("heading", { name: "Your top matches" })).toBeVisible();
 
     const matches = page.getByRole("main").getByRole("listitem").filter({ has: page.locator("article") });
