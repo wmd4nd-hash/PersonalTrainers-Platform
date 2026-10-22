@@ -103,6 +103,21 @@ export function summarizeRatings(groups: { rating: number; count: number }[]): R
   };
 }
 
+/** "1 review", "7 reviews". */
+export function reviewCountLabel(count: number): string {
+  return `${count} ${count === 1 ? "review" : "reviews"}`;
+}
+
+/** Calendar date for a review, e.g. "Oct 12, 2026", in the given timezone. */
+export function formatReviewDate(date: Date, timezone = "UTC", locale = "en-US"): string {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 /** Public reviewer name: first name and last initial, e.g. "Priya Shah" → "Priya S." */
 export function reviewerName(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);

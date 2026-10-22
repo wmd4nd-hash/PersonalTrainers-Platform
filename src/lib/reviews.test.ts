@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   averageRating,
+  formatReviewDate,
   isValidRating,
   paginate,
   parsePage,
   ratingLabel,
+  reviewCountLabel,
   reviewDeadline,
   reviewEligibility,
   reviewerName,
@@ -105,6 +107,20 @@ describe("summarizeRatings", () => {
 
   it("ignores out-of-range ratings", () => {
     expect(summarizeRatings([{ rating: 7, count: 2 }, { rating: 3, count: 1 }])).toMatchObject({ average: 3, count: 1 });
+  });
+});
+
+describe("labels", () => {
+  it("pluralises review counts", () => {
+    expect(reviewCountLabel(0)).toBe("0 reviews");
+    expect(reviewCountLabel(1)).toBe("1 review");
+    expect(reviewCountLabel(12)).toBe("12 reviews");
+  });
+
+  it("formats review dates in the trainer's timezone", () => {
+    const lateEvening = new Date("2026-03-10T23:30:00Z");
+    expect(formatReviewDate(lateEvening, "UTC")).toBe("Mar 10, 2026");
+    expect(formatReviewDate(lateEvening, "Asia/Tokyo")).toBe("Mar 11, 2026");
   });
 });
 
