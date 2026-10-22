@@ -7,6 +7,7 @@ import { dashboardNav } from "@/lib/nav";
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="grid gap-8 md:grid-cols-[190px_1fr]">
+      {/* min-w-0: on phones the nav scrolls sideways instead of widening the page. */}
       <aside className="min-w-0">
         <Suspense fallback={<Skeleton className="h-40" />}>
           <AdminNav />
