@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { login, signup, uniqueEmail } from "./helpers";
+import { cancelFromOverview, chooseBookingSlot, login, signup, uniqueEmail } from "./helpers";
 
 // Diego charges $80.00 a session, cancels free up to 24 hours ahead and offers in-person sessions.
 const TRAINER = { email: "diego@example.com", name: "Diego Ramírez" };
@@ -67,22 +67,18 @@ test("client buys a package, books with it and gets the session back after cance
   // Book a session as far ahead as possible, so cancelling is well inside the free window.
   await cardFor(client, title).getByRole("link", { name: "Book a session" }).click();
   await expect(client.getByRole("heading", { name: "Book a session" })).toBeVisible();
-  await client.locator("#packagePurchaseId").selectOption({ label: `${title} (3 left)` });
-  const dayCount = await client.locator("#day option").count();
-  await client.locator("#day").selectOption({ index: dayCount - 1 });
-  await client.locator("aside form button[type=button]").first().click();
+  await client.getByRole("radio", { name: new RegExp(`${title} \\(3 left\\)`) }).check();
+  await chooseBookingSlot(client, -1);
   await client.getByRole("button", { name: "Book with package" }).click();
   await expect(client).toHaveURL(/\/dashboard\/bookings\//);
+  const bookingId = new URL(client.url()).pathname.split("/").pop()!;
 
   await client.goto("/dashboard/packages");
   const purchase = cardFor(client, title);
   await expect(purchase).toContainText("2 of 3 sessions left");
   await expect(purchase).toContainText("Booked with this package");
 
-  await client.goto("/dashboard");
-  const booking = client.locator("li", { hasText: `with ${TRAINER.name}` });
-  await booking.getByRole("button", { name: "Cancel" }).click();
-  await expect(booking.getByText("Cancelled")).toBeVisible();
+  await cancelFromOverview(client, bookingId);
 
   await client.goto("/dashboard/packages");
   await expect(cardFor(client, title)).toContainText("3 of 3 sessions left");

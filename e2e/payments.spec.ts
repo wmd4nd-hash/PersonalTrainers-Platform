@@ -2,7 +2,7 @@ import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import pg from "pg";
-import { signup, uniqueEmail } from "./helpers";
+import { cancelFromOverview, chooseBookingSlot, signup, uniqueEmail } from "./helpers";
 
 // Each test signs up its own trainer and client, so they can run in any order and repeatedly.
 test.describe.configure({ timeout: 180_000 });
@@ -54,11 +54,8 @@ async function trainerWithPayouts(page: Page, name: string) {
 async function bookAndPay(page: Page, trainerId: string, dayIndex: number): Promise<string> {
   await page.goto(`/trainers/${trainerId}`);
   await expect(page.getByRole("heading", { name: "Book a session" })).toBeVisible();
-  const form = page.locator("form", { has: page.getByLabel("Day") });
-  const day = form.getByLabel("Day");
-  await day.selectOption({ index: dayIndex });
-  await form.locator("button[type=button]").first().click();
-  await form.getByRole("button", { name: /Book and pay/ }).click();
+  await chooseBookingSlot(page, dayIndex);
+  await page.getByRole("button", { name: /Book and pay/ }).click();
   await expect(page).toHaveURL(/\/dashboard\/bookings\/[^/?]+/);
   return new URL(page.url()).pathname.split("/").pop()!;
 }
@@ -123,10 +120,7 @@ test("a client sees their payments, opens a receipt and is refunded after cancel
   await expect(client.getByRole("button", { name: "Print receipt" })).toBeVisible();
 
   // Cancel the second session from the bookings overview.
-  await client.goto("/dashboard");
-  const booking = client.locator("li", { has: client.locator(`a[href="/dashboard/bookings/${second}"]`) });
-  await booking.getByRole("button", { name: "Cancel" }).click();
-  await expect(booking).toContainText("Cancelled");
+  await cancelFromOverview(client, second);
 
   await client.goto("/dashboard/payments");
   await expect(secondPayment).toContainText("Refunded $50.00");
