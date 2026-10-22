@@ -12,29 +12,27 @@ export function UploadDocumentForm({ suggestedKind }: { suggestedKind: string })
   const [state, action] = useActionState(uploadDocument, {});
   const [kind, setKind] = useState(suggestedKind);
   const [fileError, setFileError] = useState<string>();
-  const [hasFile, setHasFile] = useState(false);
   const errors = state.fieldErrors ?? {};
 
-  // The form clears itself after each submit, and the suggested type moves on once a
-  // document is in, so follow both (adjusting state during render, not in an effect).
+  // The suggested type moves on once a document is in, so follow it (adjusting state
+  // during render, not in an effect). The form clears itself after each submit.
   const [seen, setSeen] = useState({ state, suggestedKind });
   if (seen.state !== state || seen.suggestedKind !== suggestedKind) {
     setSeen({ state, suggestedKind });
-    if (seen.state !== state) setHasFile(false);
+    if (seen.state !== state) setFileError(undefined);
     if (seen.suggestedKind !== suggestedKind) setKind(suggestedKind);
   }
 
+  /** A quick check before uploading. The server checks again, by the file's real type. */
   function check(input: HTMLInputElement) {
     const file = input.files?.[0];
     setFileError(undefined);
-    setHasFile(Boolean(file));
     if (!file) return;
     let problem: string | undefined;
     if (file.type && !ACCEPTED.includes(file.type)) problem = "Choose a PDF, JPEG or PNG file.";
     else if (file.size > MAX_BYTES) problem = `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 5 MB.`;
     if (problem) {
       setFileError(problem);
-      setHasFile(false);
       input.value = "";
     }
   }
@@ -77,7 +75,7 @@ export function UploadDocumentForm({ suggestedKind }: { suggestedKind: string })
           className="block w-full max-w-full text-sm file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-muted"
         />
       </Field>
-      <SubmitButton disabled={!hasFile} pendingText="Uploading…">
+      <SubmitButton pendingText="Uploading…">
         Upload document
       </SubmitButton>
     </form>

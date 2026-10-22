@@ -23,7 +23,7 @@ export async function uploadAvatar(_prev: FormState, formData: FormData): Promis
 }
 
 /** Removes the signed-in user's profile photo. */
-export async function removeAvatar(): Promise<FormState> {
+export async function removeAvatar(_prev: FormState): Promise<FormState> {
   const user = await requireUser();
   await db.$transaction(async (tx) => {
     await tx.user.update({ where: { id: user.id }, data: { avatarFileId: null } });

@@ -111,8 +111,11 @@ test("a trainer adds and removes their profile photo", async ({ browser }) => {
   await trainer.getByRole("button", { name: "Upload photo" }).click();
   await expect(trainer.getByText("That file doesn't look like a JPEG, PNG or WebP image.")).toBeVisible();
 
-  await trainer.setInputFiles("#photo", png("me"));
-  await expect(trainer.getByAltText("Preview of your new photo")).toBeVisible();
+  // The preview appears once the page has hydrated, so choose the file again until it does.
+  await expect(async () => {
+    await trainer.setInputFiles("#photo", png("me"));
+    await expect(trainer.getByAltText("Preview of your new photo")).toBeVisible({ timeout: 1_000 });
+  }).toPass();
   await trainer.getByRole("button", { name: "Upload photo" }).click();
   await expect(trainer.getByText("Your new photo is live.")).toBeVisible();
   await expect(trainer.getByRole("button", { name: "Replace photo" })).toBeVisible();
