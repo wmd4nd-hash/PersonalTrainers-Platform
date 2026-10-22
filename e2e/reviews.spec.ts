@@ -11,6 +11,8 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 test.afterAll(() => pool.end());
 
 const HOUR = 60 * 60 * 1000;
+/** The client's booking list, on the tab that shows past sessions. */
+const PAST_BOOKINGS = "/dashboard?tab=past";
 
 async function mayaTrainerId(): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
@@ -43,7 +45,7 @@ async function postReview(
   page: Page,
   { stars, comment, keyboard = false }: { stars: number; comment: string; keyboard?: boolean },
 ) {
-  await page.goto("/dashboard");
+  await page.goto(PAST_BOOKINGS);
   await page.getByRole("link", { name: "Leave a review" }).click();
   await expect(page).toHaveURL(/\/dashboard\/reviews\/new\//);
   if (keyboard) {
@@ -80,7 +82,7 @@ test("client reviews a completed session and sees it on the trainer page", async
   await expect(page.getByText(comment)).toBeVisible();
 
   // The booking now shows the rating instead of the link.
-  await page.goto("/dashboard");
+  await page.goto(PAST_BOOKINGS);
   await expect(page.getByText("You rated it 4★")).toBeVisible();
   await expect(page.getByRole("link", { name: "Leave a review" })).toHaveCount(0);
 

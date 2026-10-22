@@ -314,6 +314,7 @@ export async function seedReviews(ctx: SeedContext) {
           priceCents: trainer.sessionRateCents,
           currency: trainer.currency,
           platformFeeCents: platformFeeCents(trainer.sessionRateCents, { isNewClient }),
+          ...simulatedPayment(bookingId, startsAt),
         },
       });
 
@@ -360,6 +361,7 @@ export async function seedReviews(ctx: SeedContext) {
         priceCents: trainer.sessionRateCents,
         currency: trainer.currency,
         platformFeeCents: platformFeeCents(trainer.sessionRateCents, { isNewClient: true }),
+        ...simulatedPayment("seed-reviews-maya-open", startsAt),
       },
     });
   }
@@ -367,6 +369,11 @@ export async function seedReviews(ctx: SeedContext) {
   for (const { trainerId } of Object.values(ctx.trainers)) {
     await db.$transaction((tx) => recomputeTrainerRating(tx, trainerId));
   }
+}
+
+/** Paid by card a few days ahead, the way simulated checkout records it. */
+function simulatedPayment(bookingId: string, startsAt: Date) {
+  return { stripePaymentIntentId: `pi_sim_${bookingId}`, createdAt: subDays(startsAt, 3) };
 }
 
 /** A morning slot `daysAgo` days back, staggered so a trainer's sessions don't overlap. */
