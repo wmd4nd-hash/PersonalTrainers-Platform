@@ -37,5 +37,6 @@ export const dashboardNav: Record<Role, NavLink[]> = {
     { href: "/admin/bookings", label: "Bookings" },
     { href: "/admin/reviews", label: "Reviews" },
     { href: "/admin/outbox", label: "Email outbox" },
+    { href: "/dashboard/settings", label: "Settings" },
   ],
 };

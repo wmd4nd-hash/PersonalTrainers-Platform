@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Skeleton } from "@/components/ui";
@@ -23,6 +22,7 @@ export default function DashboardLayout({ children }: LayoutProps<"/dashboard">)
 
 async function DashboardNav() {
   const user = await requireUser();
-  if (user.role === "ADMIN") redirect("/admin");
+  // Admins use the account pages here (settings, notifications) with the admin
+  // nav. Pages meant only for trainers or clients check the role themselves.
   return <SidebarNav heading={headings[user.role]} links={dashboardNav[user.role]} />;
 }
