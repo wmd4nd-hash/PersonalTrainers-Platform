@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -9,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getBusyPeriods } from "@/lib/bookings";
 import { describePolicy } from "@/lib/cancellation";
 import { db } from "@/lib/db";
+import { trainerMetadata } from "@/lib/discovery";
 import { formatMoney } from "@/lib/money";
 import { getUsableCredits } from "@/lib/packages";
 import { generateSlots, upcomingDateKeys } from "@/lib/scheduling";
@@ -17,6 +19,10 @@ import { FavoriteButton } from "./favorite-button";
 import { MessageButton } from "./message-button";
 import { PackagesSection } from "./packages-section";
 import { ReviewsSection } from "./reviews-section";
+
+export async function generateMetadata({ params }: PageProps<"/trainers/[id]">): Promise<Metadata> {
+  return trainerMetadata((await params).id);
+}
 
 export default function TrainerPage({ params, searchParams }: PageProps<"/trainers/[id]">) {
   return (
