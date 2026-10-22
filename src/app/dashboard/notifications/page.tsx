@@ -129,7 +129,7 @@ async function NotificationList({ searchParams }: Pick<PageProps<"/dashboard/not
                   {isUnread && (
                     <form action={markNotificationRead.bind(null, n.id)} className="shrink-0">
                       <SubmitButton variant="ghost" className="px-2 py-1 text-xs" pendingText="…">
-                        Mark as read
+                        Mark as read<span className="sr-only">: {n.title}</span>
                       </SubmitButton>
                     </form>
                   )}
