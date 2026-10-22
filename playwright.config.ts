@@ -9,6 +9,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 60_000,
+  // The dev server compiles each page on first visit, which can be slow on a busy machine.
+  expect: { timeout: 15_000 },
   reporter: [["list"]],
   use: {
     baseURL: `http://localhost:${port}`,
