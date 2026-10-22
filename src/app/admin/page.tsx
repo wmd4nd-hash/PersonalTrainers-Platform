@@ -26,11 +26,11 @@ export default function AdminOverviewPage() {
 
 function Kpi({ label, children, hint, href }: { label: string; children: ReactNode; hint?: ReactNode; href?: string }) {
   const body = (
-    <Card className="h-full space-y-1 p-4 transition-colors">
+    <div className="h-full space-y-1 rounded-xl border border-line bg-surface p-4 transition-colors">
       <p className="text-xs font-medium uppercase tracking-wide text-subtle">{label}</p>
       <div className="text-2xl font-semibold tabular-nums">{children}</div>
       {hint && <p className="text-xs text-subtle">{hint}</p>}
-    </Card>
+    </div>
   );
   return href ? (
     <Link href={href} className="block h-full rounded-xl hover:[&>div]:border-brand">
@@ -133,7 +133,7 @@ async function Overview() {
           {recentSignups.length === 0 ? (
             <Card className="text-sm text-subtle">No one has signed up yet.</Card>
           ) : (
-            <Card className="divide-y divide-line p-0">
+            <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
               {recentSignups.map((user) => (
                 <Link
                   key={user.id}
@@ -154,7 +154,7 @@ async function Overview() {
                   </div>
                 </Link>
               ))}
-            </Card>
+            </div>
           )}
         </section>
 
@@ -170,7 +170,7 @@ async function Overview() {
           {recentBookings.length === 0 ? (
             <Card className="text-sm text-subtle">No bookings yet.</Card>
           ) : (
-            <Card className="divide-y divide-line p-0">
+            <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
               {recentBookings.map((b) => (
                 <div key={b.id} className="flex items-start justify-between gap-3 px-4 py-3">
                   <div className="min-w-0 text-sm">
@@ -193,7 +193,7 @@ async function Overview() {
                   </div>
                 </div>
               ))}
-            </Card>
+            </div>
           )}
         </section>
       </div>

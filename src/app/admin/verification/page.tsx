@@ -159,7 +159,7 @@ async function Queue() {
         {recent.length === 0 ? (
           <p className="text-sm text-subtle">No decisions yet.</p>
         ) : (
-          <Card className="divide-y divide-line p-0">
+          <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
             {recent.map((doc) => (
               <div key={doc.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
                 <div className="min-w-0">
@@ -176,7 +176,7 @@ async function Queue() {
                 </div>
               </div>
             ))}
-          </Card>
+          </div>
         )}
       </section>
     </div>

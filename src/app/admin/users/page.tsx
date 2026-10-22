@@ -91,7 +91,7 @@ async function Users({ searchParams }: Pick<PageProps<"/admin/users">, "searchPa
           {filtered ? "No accounts match your search." : "No accounts yet."}
         </Card>
       ) : (
-        <Card className="divide-y divide-line p-0">
+        <div className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
           {users.map((user) => (
             <Link
               key={user.id}
@@ -113,7 +113,7 @@ async function Users({ searchParams }: Pick<PageProps<"/admin/users">, "searchPa
               </div>
             </Link>
           ))}
-        </Card>
+        </div>
       )}
       <Pagination basePath="/admin/users" params={{ q, role }} page={page} pages={pageCount(total, PAGE_SIZE)} />
     </>
