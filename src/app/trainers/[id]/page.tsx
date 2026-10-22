@@ -11,7 +11,7 @@ import { describePolicy } from "@/lib/cancellation";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { getUsableCredits } from "@/lib/packages";
-import { generateSlots } from "@/lib/scheduling";
+import { generateSlots, upcomingDateKeys } from "@/lib/scheduling";
 import { BookingForm, type SlotOption } from "./booking-form";
 import { FavoriteButton } from "./favorite-button";
 import { MessageButton } from "./message-button";
@@ -151,6 +151,8 @@ async function TrainerProfile({ params, searchParams }: PageProps<"/trainers/[id
               formats={formats}
               credits={credits.map((c) => ({ id: c.purchaseId, label: `${c.title} (${c.remaining} left)` }))}
               priceLabel={formatMoney(trainer.sessionRateCents, trainer.currency)}
+              timezone={trainer.timezone}
+              dates={upcomingDateKeys(now, trainer.timezone)}
             />
           )}
           <p className="text-xs text-subtle">
