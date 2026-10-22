@@ -73,7 +73,7 @@ export async function getAdminOverview() {
   ] = await Promise.all([
     db.user.count({ where: { role: "CLIENT" } }),
     db.user.count({ where: { role: "TRAINER" } }),
-    db.user.count({ where: { suspendedAt: { not: null } } }),
+    db.user.groupBy({ by: ["role"], where: { suspendedAt: { not: null } }, _count: { _all: true } }),
     db.trainerProfile.count({ where: { published: true, user: { suspendedAt: null } } }),
     db.trainerProfile.count({ where: { verificationStatus: "VERIFIED" } }),
     db.verificationDocument.count({ where: { status: "PENDING" } }),
@@ -124,9 +124,19 @@ export async function getAdminOverview() {
     }),
   ]);
 
+  const suspendedWithRole = (role: string) => suspended.find((r) => r.role === role)?._count._all ?? 0;
+
   return {
     monthStart,
-    counts: { clients, trainers, suspended, published, verified, pendingDocuments },
+    counts: {
+      clients,
+      trainers,
+      suspendedClients: suspendedWithRole("CLIENT"),
+      suspendedTrainers: suspendedWithRole("TRAINER"),
+      published,
+      verified,
+      pendingDocuments,
+    },
     month: {
       bookings: bookingsThisMonth,
       gross: mergeMoneyTotals(totalsOf(bookingSums, "priceCents"), totalsOf(packageSums, "priceCents")),
