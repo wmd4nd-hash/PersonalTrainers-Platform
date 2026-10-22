@@ -9,15 +9,30 @@ export function verifiedExplanation(verifiedAt?: Date | null) {
     : "Certification and insurance checked by our team";
 }
 
-/** Shown next to trainers whose documents an admin has checked. */
+/**
+ * Shown next to trainers whose documents an admin has checked. The explanation
+ * shows on hover (title), and on tap or keyboard focus, where a title can't be seen.
+ */
 export function VerifiedBadge({ status, verifiedAt }: { status: VerificationStatus; verifiedAt?: Date | null }) {
   if (status !== "VERIFIED") return null;
   const explanation = verifiedExplanation(verifiedAt);
   return (
-    <span title={explanation} className="inline-flex cursor-help">
-      <Badge className="bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200">
-        <span aria-hidden>✓&nbsp;</span>Verified<span className="sr-only">: {explanation}</span>
-      </Badge>
+    <span className="group relative inline-flex">
+      <span
+        tabIndex={0}
+        title={explanation}
+        className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <Badge className="bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200">
+          <span aria-hidden>✓&nbsp;</span>Verified<span className="sr-only">: {explanation}</span>
+        </Badge>
+      </span>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-full z-10 mt-1.5 hidden w-60 max-w-[80vw] rounded-lg border border-line bg-surface px-3 py-2 text-xs font-normal text-foreground shadow-lg group-focus-within:block"
+      >
+        {explanation}
+      </span>
     </span>
   );
 }

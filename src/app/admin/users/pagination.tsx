@@ -34,7 +34,7 @@ export function Pagination({
         </span>
       )}
       <span className="text-subtle">
-        Page {Math.min(page, pages)} of {pages}
+        Page {page} of {pages}
       </span>
       {page < pages ? (
         <Link href={href(page + 1)} className={linkClass} rel="next">

@@ -37,9 +37,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/files/[i
     "Content-Type": file.contentType,
     "Content-Disposition": inlineDisposition(file.filename),
     "X-Content-Type-Options": "nosniff",
-    // Files never change: a new upload gets a new id. Photos may be cached for a day so a
-    // removed photo stops showing soon; private documents are never stored by caches.
-    "Cache-Control": isPublic ? "public, max-age=86400" : "private, no-store",
+    // Files never change: a new upload gets a new id. Photos are cached for an hour only, so
+    // one that was removed (by its owner or an admin) stops showing soon. Private documents
+    // are never stored by caches.
+    "Cache-Control": isPublic ? "public, max-age=3600" : "private, no-store",
     "Cross-Origin-Resource-Policy": "same-origin",
   });
 

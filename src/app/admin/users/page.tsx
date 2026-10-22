@@ -29,33 +29,33 @@ export default function AdminUsersPage({ searchParams }: PageProps<"/admin/users
 
 async function Users({ searchParams }: Pick<PageProps<"/admin/users">, "searchParams">) {
   await requireAdmin();
-  const filters = parseUserFilters(await searchParams);
-  const { q, role, page } = filters;
+  const { q, role, page: requestedPage } = parseUserFilters(await searchParams);
   const where: Prisma.UserWhereInput = {
     ...(role && { role }),
     ...(q && {
       OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }],
     }),
   };
-  const [total, users] = await Promise.all([
-    db.user.count({ where }),
-    db.user.findMany({
-      where,
-      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        avatarFileId: true,
-        createdAt: true,
-        suspendedAt: true,
-        trainerProfile: { select: { published: true, verificationStatus: true } },
-      },
-    }),
-  ]);
+  const total = await db.user.count({ where });
+  const pages = pageCount(total, PAGE_SIZE);
+  // A page past the end (an old link, a typed URL) shows the last page.
+  const page = Math.min(requestedPage, pages);
+  const users = await db.user.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatarFileId: true,
+      createdAt: true,
+      suspendedAt: true,
+      trainerProfile: { select: { verificationStatus: true } },
+    },
+  });
   const filtered = Boolean(q || role);
 
   return (
@@ -104,9 +104,7 @@ async function Users({ searchParams }: Pick<PageProps<"/admin/users">, "searchPa
                 <p className="truncate text-sm text-subtle">{user.email}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
-                {user.suspendedAt && (
-                  <SuspendedBadge />
-                )}
+                {user.suspendedAt && <SuspendedBadge />}
                 {user.trainerProfile && <VerificationStatusBadge status={user.trainerProfile.verificationStatus} />}
                 <RoleBadge role={user.role} />
                 <span className="hidden w-24 text-right text-xs text-subtle md:inline">{formatDay(user.createdAt)}</span>
@@ -115,7 +113,7 @@ async function Users({ searchParams }: Pick<PageProps<"/admin/users">, "searchPa
           ))}
         </div>
       )}
-      <Pagination basePath="/admin/users" params={{ q, role }} page={page} pages={pageCount(total, PAGE_SIZE)} />
+      <Pagination basePath="/admin/users" params={{ q, role }} page={page} pages={pages} />
     </>
   );
 }

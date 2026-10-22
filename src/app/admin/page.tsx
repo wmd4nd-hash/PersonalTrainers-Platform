@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { after } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { Avatar } from "@/components/avatar";
 import { Badge, Card, PageHeader, Skeleton } from "@/components/ui";
 import { getAdminOverview, type MoneyTotal } from "@/lib/admin-stats";
 import { requireAdmin } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { formatSlot } from "@/lib/scheduling";
-import { formatDay } from "@/lib/verification";
+import { expireLapsedVerifications, formatDay } from "@/lib/verification";
 import { bookingStatusLabels, bookingStatusStyles } from "./bookings/booking-list";
 import { RoleBadge, SuspendedBadge } from "./users/role-badge";
 
@@ -28,7 +30,7 @@ function Kpi({ label, children, hint, href }: { label: string; children: ReactNo
   const body = (
     <div className="h-full space-y-1 rounded-xl border border-line bg-surface p-4 transition-colors">
       <p className="text-xs font-medium uppercase tracking-wide text-subtle">{label}</p>
-      <div className="text-2xl font-semibold tabular-nums">{children}</div>
+      <div className="break-words text-xl font-semibold tabular-nums sm:text-2xl">{children}</div>
       {hint && <p className="text-xs text-subtle">{hint}</p>}
     </div>
   );
@@ -59,6 +61,8 @@ function Money({ totals }: { totals: MoneyTotal[] }) {
 
 async function Overview() {
   await requireAdmin();
+  // Take the badge from trainers whose documents have lapsed, without slowing the page down.
+  after(() => expireLapsedVerifications(db));
   const { monthStart, counts, month, recentSignups, recentBookings } = await getAdminOverview();
   const monthName = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(monthStart);
 
@@ -111,7 +115,7 @@ async function Overview() {
           <Kpi label="Gross booking value" hint="Card-paid sessions and packages, before refunds">
             <Money totals={month.gross} />
           </Kpi>
-          <Kpi label="Platform fees" hint="Our share of those payments">
+          <Kpi label="Platform fees" hint="Our share of those payments, before refunds">
             <Money totals={month.fees} />
           </Kpi>
           <Kpi label="Refunds" hint="Given back to clients this month">

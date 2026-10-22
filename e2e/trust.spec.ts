@@ -13,6 +13,18 @@ function pdf(title: string) {
   };
 }
 
+/** A 1×1 PNG. */
+function png(name: string) {
+  return {
+    name: `${name}.png`,
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  };
+}
+
 /** Each person gets their own browser context, so their sessions don't mix. */
 async function openAs(browser: Browser, email?: string) {
   const page = await (await browser.newContext()).newPage();
@@ -86,6 +98,37 @@ test("a trainer is verified once an admin approves their certificate and insuran
 
   await trainer.reload();
   await expect(trainer.getByText("Clients see a Verified badge on your profile.", { exact: false })).toBeVisible();
+});
+
+test("a trainer adds and removes their profile photo", async ({ browser }) => {
+  const name = `Photo Trainer ${Date.now()}`;
+  const trainer = await openAs(browser);
+  await signup(trainer, { name, email: uniqueEmail("photo-trainer"), role: "TRAINER" });
+  await trainer.goto("/dashboard/profile");
+
+  // The real type is checked on the server, whatever the file is called.
+  await trainer.setInputFiles("#photo", { name: "me.png", mimeType: "image/png", buffer: Buffer.from("not a photo") });
+  await trainer.getByRole("button", { name: "Upload photo" }).click();
+  await expect(trainer.getByText("That file doesn't look like a JPEG, PNG or WebP image.")).toBeVisible();
+
+  await trainer.setInputFiles("#photo", png("me"));
+  await expect(trainer.getByAltText("Preview of your new photo")).toBeVisible();
+  await trainer.getByRole("button", { name: "Upload photo" }).click();
+  await expect(trainer.getByText("Your new photo is live.")).toBeVisible();
+  await expect(trainer.getByRole("button", { name: "Replace photo" })).toBeVisible();
+
+  // Profile photos are public, even to visitors who aren't signed in.
+  const src = (await trainer.getByRole("img", { name }).first().getAttribute("src"))!;
+  const visitor = await openAs(browser);
+  const photo = await visitor.request.get(src);
+  expect(photo.status()).toBe(200);
+  expect(photo.headers()["content-type"]).toBe("image/png");
+  expect(photo.headers()["cache-control"]).toContain("public");
+
+  await trainer.getByRole("button", { name: "Remove photo" }).click();
+  await expect(trainer.getByText("Photo removed.")).toBeVisible();
+  await expect(trainer.getByRole("img", { name })).toHaveCount(0);
+  expect((await visitor.request.get(src)).status()).toBe(404);
 });
 
 test("a suspended client is signed out and can't log back in", async ({ browser }) => {

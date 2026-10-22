@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { PrismaClient } from "@/generated/prisma/client";
 import {
+  expireLapsedVerifications,
   isDocumentExpired,
   nextVerificationState,
   requirementState,
@@ -103,5 +105,43 @@ describe("requirementState", () => {
     expect(requirementState([doc({ kind: "INSURANCE" })], "INSURANCE", now)).toBe("pending");
     expect(requirementState([expiredInsurance], "INSURANCE", now)).toBe("expired");
     expect(requirementState([doc({ kind: "INSURANCE", status: "REJECTED" })], "INSURANCE", now)).toBe("missing");
+  });
+});
+
+describe("expireLapsedVerifications", () => {
+  it("takes the badge from trainers whose approved documents have lapsed", async () => {
+    const profiles: Record<string, { verificationStatus: string; verifiedAt: Date | null }> = {
+      lapsed: { verificationStatus: "VERIFIED", verifiedAt: day("2026-01-05") },
+      renewed: { verificationStatus: "VERIFIED", verifiedAt: day("2026-01-05") },
+    };
+    const docs: Record<string, DocumentForStatus[]> = {
+      lapsed: [approvedCert, { ...approvedInsurance, expiresOn: day("2026-10-01") }],
+      // An old policy expired, but a renewed one is approved: still verified.
+      renewed: [
+        approvedCert,
+        { ...approvedInsurance, expiresOn: day("2026-10-01") },
+        { ...approvedInsurance, expiresOn: day("2027-10-01") },
+      ],
+    };
+    const update = vi.fn(async ({ where, data }: { where: { id: string }; data: (typeof profiles)[string] }) => {
+      profiles[where.id] = data;
+    });
+    const client = {
+      $queryRaw: async () => [],
+      $transaction: async (fn: (tx: unknown) => unknown) => fn(client),
+      trainerProfile: {
+        findMany: async () => Object.keys(docs).map((id) => ({ id })),
+        findUnique: async ({ where }: { where: { id: string } }) => profiles[where.id] ?? null,
+        update,
+      },
+      verificationDocument: {
+        findMany: async ({ where }: { where: { trainerId: string } }) => docs[where.trainerId] ?? [],
+      },
+    };
+
+    expect(await expireLapsedVerifications(client as unknown as PrismaClient, now)).toBe(1);
+    expect(profiles.lapsed).toEqual({ verificationStatus: "UNVERIFIED", verifiedAt: null });
+    expect(profiles.renewed!.verificationStatus).toBe("VERIFIED");
+    expect(update).toHaveBeenCalledTimes(1);
   });
 });

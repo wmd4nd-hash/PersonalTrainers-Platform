@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { suspendUser, unsuspendUser } from "@/app/actions/admin";
+import { removeUserPhoto, suspendUser, unsuspendUser } from "@/app/actions/admin";
 import { Avatar } from "@/components/avatar";
-import { Button, Card, Skeleton } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Card, Skeleton } from "@/components/ui";
 import { DocumentStatusBadge, VerificationStatusBadge } from "@/components/verified-badge";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -129,14 +130,32 @@ async function UserDetail({ params }: Pick<PageProps<"/admin/users/[id]">, "para
         {user.role !== "ADMIN" &&
           (user.suspendedAt ? (
             <form action={unsuspendUser.bind(null, user.id)}>
-              <Button variant="secondary">Lift suspension</Button>
+              <SubmitButton variant="secondary" pendingText="Lifting…">
+                Lift suspension
+              </SubmitButton>
             </form>
           ) : (
             <form action={suspendUser.bind(null, user.id)}>
-              <Button variant="danger">Suspend account</Button>
+              <SubmitButton variant="danger" pendingText="Suspending…">
+                Suspend account
+              </SubmitButton>
             </form>
           ))}
       </Card>
+
+      {user.avatarFileId && (
+        <Card className="flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1 text-sm">
+            <h2 className="font-semibold">Profile photo</h2>
+            <p className="text-subtle">Remove it if it isn&apos;t appropriate. They can upload a new one.</p>
+          </div>
+          <form action={removeUserPhoto.bind(null, user.id)}>
+            <SubmitButton variant="secondary" pendingText="Removing…">
+              Remove photo
+            </SubmitButton>
+          </form>
+        </Card>
+      )}
 
       {trainer && (
         <Card className="space-y-4">

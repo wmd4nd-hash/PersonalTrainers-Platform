@@ -47,16 +47,17 @@ async function Bookings({ searchParams }: Pick<PageProps<"/admin/bookings">, "se
   await requireAdmin();
   const filters = parseBookingFilters(await searchParams);
   const where = whereFor(filters);
-  const [total, bookings] = await Promise.all([
-    db.booking.count({ where }),
-    db.booking.findMany({
-      where,
-      orderBy: [{ startsAt: "desc" }, { id: "asc" }],
-      skip: (filters.page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      select: adminBookingSelect,
-    }),
-  ]);
+  const total = await db.booking.count({ where });
+  const pages = pageCount(total, PAGE_SIZE);
+  // A page past the end (an old link, a typed URL) shows the last page.
+  const page = Math.min(filters.page, pages);
+  const bookings = await db.booking.findMany({
+    where,
+    orderBy: [{ startsAt: "desc" }, { id: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+    select: adminBookingSelect,
+  });
   const filtered = Boolean(filters.q || filters.status || filters.from || filters.to);
 
   return (
@@ -108,8 +109,8 @@ async function Bookings({ searchParams }: Pick<PageProps<"/admin/bookings">, "se
           from: dayValue(filters.from),
           to: dayValue(filters.to),
         }}
-        page={filters.page}
-        pages={pageCount(total, PAGE_SIZE)}
+        page={page}
+        pages={pages}
       />
     </>
   );

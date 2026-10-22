@@ -2,6 +2,7 @@ import type {
   DocumentKind,
   DocumentStatus,
   Prisma,
+  PrismaClient,
   VerificationStatus,
 } from "@/generated/prisma/client";
 
@@ -138,9 +139,8 @@ export async function syncVerificationStatus(tx: Tx, trainerId: string, now = ne
 }
 
 /**
- * Verified trainers whose certification or insurance has since expired. Statuses
- * are only recomputed when documents change, so a daily job should pass each of
- * these to `syncVerificationStatus` to take the badge away on time.
+ * Verified trainers with an approved document that has since expired. Statuses
+ * are only recomputed when documents change, so these may need their badge taken away.
  */
 export async function trainersWithExpiredVerification(client: Tx, now = new Date()) {
   const today = new Date(`${utcDay(now)}T00:00:00.000Z`);
@@ -149,6 +149,21 @@ export async function trainersWithExpiredVerification(client: Tx, now = new Date
     select: { id: true },
   });
   return rows.map((r) => r.id);
+}
+
+/**
+ * Recomputes the status of every verified trainer whose certification or
+ * insurance has expired, so the Verified badge disappears once it lapses.
+ * Cheap when there is nothing to do; safe to run as often as you like.
+ * Returns how many trainers lost their verification.
+ */
+export async function expireLapsedVerifications(client: PrismaClient, now = new Date()) {
+  let expired = 0;
+  for (const trainerId of await trainersWithExpiredVerification(client, now)) {
+    const next = await client.$transaction((tx) => syncVerificationStatus(tx, trainerId, now));
+    if (next && next.status !== "VERIFIED") expired += 1;
+  }
+  return expired;
 }
 
 /** Formats a stored calendar day (or any instant) as e.g. "Oct 22, 2026", in UTC. */

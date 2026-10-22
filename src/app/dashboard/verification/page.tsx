@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { Suspense } from "react";
 import { deleteDocument } from "@/app/actions/verification";
-import { Button, Card, PageHeader, Skeleton, cx } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Card, PageHeader, Skeleton, cx } from "@/components/ui";
 import {
   DocumentStatusBadge,
   VerificationStatusBadge,
@@ -14,7 +16,9 @@ import {
   documentKindLabels,
   formatDay,
   isDocumentExpired,
+  nextVerificationState,
   requirementState,
+  syncVerificationStatus,
   type RequirementState,
 } from "@/lib/verification";
 import type { VerificationStatus } from "@/generated/prisma/client";
@@ -73,6 +77,16 @@ async function Verification() {
     }),
   ]);
   const now = new Date();
+  // The stored status only changes when documents do, so it can lag behind an expiry date.
+  // Show the up-to-date one and save it after the response.
+  const status = nextVerificationState(
+    { status: profile.verificationStatus, verifiedAt: profile.verifiedAt },
+    documents,
+    now,
+  );
+  if (status.status !== profile.verificationStatus) {
+    after(() => db.$transaction((tx) => syncVerificationStatus(tx, trainerId)));
+  }
   const requirements = REQUIRED_DOCUMENT_KINDS.map((kind) => ({
     kind,
     state: requirementState(documents, kind, now),
@@ -84,11 +98,11 @@ async function Verification() {
       <Card className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-semibold">Your status</h2>
-          <VerificationStatusBadge status={profile.verificationStatus} />
+          <VerificationStatusBadge status={status.status} />
         </div>
         <p className="text-sm">
-          {statusIntro[profile.verificationStatus]}
-          {profile.verificationStatus === "VERIFIED" && ` ${verifiedExplanation(profile.verifiedAt)}.`}
+          {statusIntro[status.status]}
+          {status.status === "VERIFIED" && ` ${verifiedExplanation(status.verifiedAt)}.`}
         </p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {requirements.map(({ kind, state }) => (
@@ -165,9 +179,13 @@ async function Verification() {
                     </div>
                     {doc.status === "PENDING" && (
                       <form action={deleteDocument.bind(null, doc.id)}>
-                        <Button variant="ghost" className="text-sm" aria-label={`Delete ${doc.file.filename}`}>
+                        <SubmitButton
+                          variant="ghost"
+                          pendingText="Deleting…"
+                          aria-label={`Delete ${doc.file.filename}`}
+                        >
                           Delete
-                        </Button>
+                        </SubmitButton>
                       </form>
                     )}
                   </Card>

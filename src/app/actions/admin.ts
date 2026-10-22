@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { cancelBookingAs } from "@/lib/booking-lifecycle";
 import { db } from "@/lib/db";
 import { documentReviewed } from "@/lib/events";
+import { deleteUnusedFiles } from "@/lib/storage";
 import { fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
 import { adminCancelSchema, documentReviewSchema } from "@/lib/validation/trust";
 import { lockTrainerProfile, syncVerificationStatus } from "@/lib/verification";
@@ -34,7 +35,7 @@ export async function reviewDocument(documentId: string, _prev: FormState, formD
     await syncVerificationStatus(tx, document.trainerId, now);
     return true;
   });
-  if (!reviewed) return { error: "This document has already been reviewed." };
+  if (!reviewed) return { error: "This document was already reviewed, or the trainer deleted it." };
 
   await documentReviewed(documentId);
   refresh();
@@ -56,6 +57,16 @@ export async function unsuspendUser(userId: string) {
   await db.user.updateMany({
     where: { id: userId, role: { not: "ADMIN" } },
     data: { suspendedAt: null },
+  });
+  refresh();
+}
+
+/** Takes down someone's profile photo, e.g. when it isn't appropriate. They can upload a new one. */
+export async function removeUserPhoto(userId: string) {
+  await requireAdmin();
+  await db.$transaction(async (tx) => {
+    await tx.user.updateMany({ where: { id: userId }, data: { avatarFileId: null } });
+    await deleteUnusedFiles(userId, tx);
   });
   refresh();
 }

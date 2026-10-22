@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { after } from "next/server";
 import { Suspense } from "react";
 import { Avatar } from "@/components/avatar";
 import { Card, PageHeader, Skeleton } from "@/components/ui";
 import { DocumentStatusBadge, VerificationStatusBadge } from "@/components/verified-badge";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { documentKindLabels, formatDay, isDocumentExpired } from "@/lib/verification";
+import { documentKindLabels, expireLapsedVerifications, formatDay, isDocumentExpired } from "@/lib/verification";
 import { ReviewForm } from "./review-form";
 
 export const metadata: Metadata = { title: "Verification queue" };
@@ -26,6 +27,8 @@ export default function VerificationQueuePage() {
 
 async function Queue() {
   await requireAdmin();
+  // Take the badge from trainers whose documents have lapsed, without slowing the page down.
+  after(() => expireLapsedVerifications(db));
   const [pending, total, recent] = await Promise.all([
     db.verificationDocument.findMany({
       where: { status: "PENDING" },
@@ -44,7 +47,7 @@ async function Queue() {
             user: { select: { id: true, name: true, email: true, avatarFileId: true } },
             documents: {
               where: { status: { not: "PENDING" } },
-              orderBy: { reviewedAt: "desc" },
+              orderBy: { reviewedAt: { sort: "desc", nulls: "last" } },
               take: 4,
               select: { id: true, kind: true, status: true, expiresOn: true },
             },
@@ -54,7 +57,7 @@ async function Queue() {
     }),
     db.verificationDocument.count({ where: { status: "PENDING" } }),
     db.verificationDocument.findMany({
-      where: { status: { not: "PENDING" } },
+      where: { status: { not: "PENDING" }, reviewedAt: { not: null } },
       orderBy: { reviewedAt: "desc" },
       take: 10,
       select: {
