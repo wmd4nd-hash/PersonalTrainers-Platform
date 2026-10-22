@@ -104,7 +104,7 @@ async function TrainerSearchResults({ searchParams }: Pick<PageProps<"/trainers"
             </p>
           </Card>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid gap-4 sm:grid-cols-2">
             {results.trainers.map((trainer) => (
               <li key={trainer.id}>
                 <TrainerCard trainer={trainer} headingLevel={3} />
@@ -209,7 +209,7 @@ function SortForm({ search }: { search: TrainerSearch }) {
       {keep.map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <label htmlFor="sort" className="text-sm text-subtle">
+      <label htmlFor="sort" className="whitespace-nowrap text-sm text-subtle">
         Sort by
       </label>
       <AutoSubmitSelect id="sort" name="sort" defaultValue={search.sort} className="w-auto">
@@ -259,7 +259,7 @@ function SearchSkeleton() {
       <Skeleton className="h-11 lg:h-[34rem]" />
       <div className="space-y-4">
         <Skeleton className="h-9 w-48" />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {Array.from({ length: 6 }, (_, i) => (
             <TrainerCardSkeleton key={i} />
           ))}

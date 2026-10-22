@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { TrainerCard, TrainerCardSkeleton } from "@/components/trainer-card";
 import { Card } from "@/components/ui";
@@ -35,6 +36,8 @@ function browseHref(answers: MatchAnswers) {
 
 async function MatchResults({ searchParams }: Pick<PageProps<"/match/results">, "searchParams">) {
   const answers = parseMatchAnswers(await searchParams);
+  // Open times depend on the clock, so this runs per request.
+  await connection();
   const matches = await findMatches(answers, new Date());
   const summary = describeAnswers(answers);
 

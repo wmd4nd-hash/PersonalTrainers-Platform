@@ -85,7 +85,7 @@ export function TrainerCard({
         {trainer.languages.length > 0 && (
           <p className="text-subtle">Speaks {trainer.languages.map(tagLabel).join(", ")}</p>
         )}
-        <p>
+        <p className="ml-auto whitespace-nowrap">
           <span className="text-base font-semibold">{formatMoney(trainer.sessionRateCents, trainer.currency)}</span>
           <span className="text-subtle"> / {trainer.sessionMinutes} min</span>
         </p>

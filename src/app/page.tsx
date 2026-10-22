@@ -101,7 +101,7 @@ export default function Home() {
 
         <Link
           href="/match"
-          className="mt-8 flex max-w-2xl items-center justify-between gap-4 rounded-xl border border-brand/30 bg-surface p-4 hover:border-brand"
+          className="mt-8 flex max-w-2xl flex-col items-start gap-3 rounded-xl border border-brand/30 bg-surface p-4 hover:border-brand sm:flex-row sm:items-center sm:justify-between sm:gap-4"
         >
           <span>
             <span className="block font-semibold">Not sure where to start?</span>
