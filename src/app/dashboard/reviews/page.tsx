@@ -107,7 +107,7 @@ async function TrainerReviews({ searchParams }: Pick<PageProps<"/dashboard/revie
                     Hidden reviews don&apos;t appear on your profile or count toward your rating.
                   </p>
                 ) : (
-                  <ReplyForm reviewId={review.id} reply={review.trainerReply} />
+                  <ReplyForm reviewId={review.id} reply={review.trainerReply} clientName={review.client.name} />
                 )}
               </ReviewCard>
             </Card>

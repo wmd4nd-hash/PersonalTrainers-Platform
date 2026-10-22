@@ -42,7 +42,7 @@ export function ReviewCard({
           <p className="truncate text-sm font-medium">{authorName}</p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-subtle">
             <StarRating value={review.rating} size="sm" label={`${review.rating} out of 5 stars`} />
-            <span>
+            <span className="min-w-0 break-words">
               <time dateTime={review.createdAt.toISOString()}>{formatReviewDate(review.createdAt, timezone)}</time>
               {meta && <> · {meta}</>}
             </span>

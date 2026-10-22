@@ -8,7 +8,7 @@ import { MAX_REPLY_LENGTH } from "@/lib/reviews";
 import type { FormState } from "@/lib/validation";
 
 /** Trainer's single public reply to a review: write it, edit it or remove it. */
-export function ReplyForm({ reviewId, reply }: { reviewId: string; reply: string }) {
+export function ReplyForm({ reviewId, reply, clientName }: { reviewId: string; reply: string; clientName: string }) {
   const [editing, setEditing] = useState(false);
   const [state, action] = useActionState(async (prev: FormState, formData: FormData) => {
     const result = await saveReviewReply(reviewId, prev, formData);
@@ -23,11 +23,12 @@ export function ReplyForm({ reviewId, reply }: { reviewId: string; reply: string
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" type="button" onClick={() => setEditing(true)}>
           {reply ? "Edit reply" : "Reply"}
+          <span className="sr-only"> to {clientName}</span>
         </Button>
         {reply && (
           <form action={deleteReviewReply.bind(null, reviewId)}>
             <SubmitButton variant="ghost" pendingText="Removing…">
-              Remove reply
+              Remove reply<span className="sr-only"> to {clientName}</span>
             </SubmitButton>
           </form>
         )}

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   averageRating,
   formatReviewDate,
@@ -6,6 +7,7 @@ import {
   paginate,
   parsePage,
   ratingLabel,
+  recomputeTrainerRating,
   reviewCountLabel,
   reviewDeadline,
   reviewEligibility,
@@ -159,5 +161,49 @@ describe("pagination", () => {
   it("clamps pages past the end and handles empty lists", () => {
     expect(paginate(25, 9, 10)).toMatchObject({ page: 3, skip: 20, hasNext: false });
     expect(paginate(0, 4, 10)).toMatchObject({ page: 1, pageCount: 1, skip: 0, hasPrevious: false, hasNext: false });
+  });
+});
+
+describe("recomputeTrainerRating", () => {
+  function fakeTx(sum: number | null, count: number) {
+    const calls: string[] = [];
+    const tx = {
+      $queryRaw: vi.fn(async (strings: TemplateStringsArray) => {
+        calls.push(strings.join("?"));
+        return [];
+      }),
+      review: {
+        aggregate: vi.fn(async () => {
+          calls.push("aggregate");
+          return { _sum: { rating: sum }, _count: { _all: count } };
+        }),
+      },
+      trainerProfile: {
+        update: vi.fn(async () => {
+          calls.push("update");
+          return {};
+        }),
+      },
+    };
+    return { tx: tx as unknown as Prisma.TransactionClient, calls, mocks: tx };
+  }
+
+  it("locks the trainer, then stores the average of visible reviews", async () => {
+    const { tx, calls, mocks } = fakeTx(13, 3);
+    expect(await recomputeTrainerRating(tx, "trainer-1")).toEqual({ ratingAverage: 4.33, ratingCount: 3 });
+    expect(calls[0]).toContain("FOR NO KEY UPDATE");
+    expect(calls.slice(1)).toEqual(["aggregate", "update"]);
+    expect(mocks.review.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { trainerId: "trainer-1", hidden: false } }),
+    );
+    expect(mocks.trainerProfile.update).toHaveBeenCalledWith({
+      where: { id: "trainer-1" },
+      data: { ratingAverage: 4.33, ratingCount: 3 },
+    });
+  });
+
+  it("resets to zero when no visible reviews are left", async () => {
+    const { tx } = fakeTx(null, 0);
+    expect(await recomputeTrainerRating(tx, "trainer-1")).toEqual({ ratingAverage: 0, ratingCount: 0 });
   });
 });

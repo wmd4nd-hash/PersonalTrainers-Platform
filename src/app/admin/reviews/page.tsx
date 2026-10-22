@@ -66,7 +66,7 @@ async function AdminReviews({ searchParams }: Pick<PageProps<"/admin/reviews">, 
       <FilterForm filters={filters} />
       <p className="text-sm text-subtle" aria-live="polite">
         {reviewCountLabel(total)}
-        {filtered && " match these filters"}
+        {filtered && (total === 1 ? " matches these filters" : " match these filters")}
       </p>
 
       {reviews.length === 0 ? (
@@ -109,6 +109,7 @@ async function AdminReviews({ searchParams }: Pick<PageProps<"/admin/reviews">, 
                   <form action={setReviewHidden.bind(null, review.id, !review.hidden)}>
                     <SubmitButton variant={review.hidden ? "secondary" : "danger"} pendingText="Saving…">
                       {review.hidden ? "Unhide" : "Hide"}
+                      <span className="sr-only"> review by {review.client.name}</span>
                     </SubmitButton>
                   </form>
                 </ReviewCard>

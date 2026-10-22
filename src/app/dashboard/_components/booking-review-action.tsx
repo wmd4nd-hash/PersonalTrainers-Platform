@@ -14,7 +14,14 @@ export type ReviewableBooking = { id: string; status: string; clientId: string }
 const completedBookingsOf = cache(async (clientId: string) => {
   const bookings = await db.booking.findMany({
     where: { clientId, status: "COMPLETED" },
-    select: { id: true, clientId: true, status: true, endsAt: true, review: { select: { rating: true } } },
+    select: {
+      id: true,
+      clientId: true,
+      status: true,
+      endsAt: true,
+      review: { select: { rating: true } },
+      trainer: { select: { user: { select: { name: true } } } },
+    },
   });
   return new Map(bookings.map((b) => [b.id, b]));
 });
@@ -34,7 +41,9 @@ export async function BookingReviewAction({ booking, viewer }: { booking: Review
           You rated it {own.review.rating}
           <span className="text-amber-500">★</span>
         </span>
-        <span className="sr-only">You rated it {own.review.rating} out of 5 stars</span>
+        <span className="sr-only">
+          You rated your session with {own.trainer.user.name} {own.review.rating} out of 5 stars
+        </span>
       </Link>
     );
   }
@@ -48,7 +57,7 @@ export async function BookingReviewAction({ booking, viewer }: { booking: Review
       href={`/dashboard/reviews/new/${own.id}`}
       className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
     >
-      Leave a review
+      Leave a review<span className="sr-only"> for your session with {own.trainer.user.name}</span>
     </Link>
   );
 }
