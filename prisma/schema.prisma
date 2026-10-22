@@ -79,6 +79,11 @@ model User {
   /// Secret for this user's calendar (.ics) feed URL.
   calendarToken      String   @unique @default(cuid())
   suspendedAt        DateTime?
+  /// Bumped to sign out every session, e.g. after a password change.
+  sessionVersion     Int      @default(0)
+  /// Failed logins since the last success, for slowing down password guessing.
+  failedLoginCount   Int      @default(0)
+  loginLockedUntil   DateTime?
   createdAt          DateTime @default(now())
 
   trainerProfile      TrainerProfile?
@@ -207,6 +212,8 @@ model Booking {
   cancelledById           String?
   cancellationReason      String          @default("")
   reminderSentAt          DateTime?
+  /// Set when the trainer moves the session; the client can then cancel free of charge.
+  movedByTrainerAt        DateTime?
   completedAt             DateTime?
   createdAt               DateTime        @default(now())
 

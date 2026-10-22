@@ -20,6 +20,29 @@ export function paymentsEnabled() {
 }
 
 /**
+ * Whether bookings can be paid at all: with Stripe, or simulated. Simulated
+ * payments confirm everything for free, so a production site only allows them
+ * when DEMO_MODE=true is set on purpose.
+ */
+export function simulatedPaymentsAllowed() {
+  return process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true";
+}
+
+export function canTakePayments() {
+  return paymentsEnabled() || simulatedPaymentsAllowed();
+}
+
+export class PaymentsUnavailableError extends Error {
+  constructor() {
+    super("Card payments aren't set up on this site. Set STRIPE_SECRET_KEY, or DEMO_MODE=true for a demo.");
+  }
+}
+
+function assertSimulationAllowed() {
+  if (!simulatedPaymentsAllowed()) throw new PaymentsUnavailableError();
+}
+
+/**
  * Ids we make up when Stripe is off ("acct_sim_…" for payout accounts,
  * "pi_sim_…" for payments) so simulated payments look like real ones to the
  * rest of the app. They are never sent to Stripe.
@@ -119,6 +142,7 @@ function requireStripe(): Stripe {
 
 /** Without Stripe: marks the trainer as connected so the whole flow can be tried out. */
 export async function setUpSimulatedPayouts(trainerId: string) {
+  assertSimulationAllowed();
   await db.trainerProfile.update({
     where: { id: trainerId },
     data: { stripeAccountId: `acct_sim_${trainerId}`, stripeChargesEnabled: true, stripePayoutsEnabled: true },
@@ -278,6 +302,7 @@ export async function beginBookingCheckout(bookingId: string): Promise<string> {
 
   const stripe = getStripe();
   if (!stripe) {
+    assertSimulationAllowed();
     await markBookingPaid(bookingId, { paymentIntentId: simulatedPaymentId(bookingId) });
     return successPath;
   }
@@ -326,6 +351,7 @@ export async function beginPackageCheckout(purchaseId: string): Promise<string> 
 
   const stripe = getStripe();
   if (!stripe) {
+    assertSimulationAllowed();
     await markPackagePaid(purchaseId, { paymentIntentId: simulatedPaymentId(purchaseId) });
     return successPath;
   }

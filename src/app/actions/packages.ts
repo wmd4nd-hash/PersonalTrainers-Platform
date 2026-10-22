@@ -8,7 +8,7 @@ import { requireRole, requireTrainerProfileId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { unusedRefundCents, unusedSessions } from "@/lib/package-pricing";
 import { notifyPackageRefunded } from "@/lib/packages";
-import { beginPackageCheckout, refundPackage } from "@/lib/payments";
+import { beginPackageCheckout, canTakePayments, refundPackage } from "@/lib/payments";
 import { fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
 import { packageSchema, type PackageInput } from "@/lib/validation/packages";
 
@@ -65,6 +65,9 @@ export async function reactivatePackage(packageId: string) {
 export async function buyPackage(_prev: FormState, formData: FormData): Promise<FormState> {
   const client = await requireRole("CLIENT");
   const packageId = String(formData.get("packageId") ?? "");
+  if (!canTakePayments()) {
+    return { error: "Online payments aren't available yet, so packages can't be bought. Please try again later." };
+  }
 
   const pkg = await db.package.findFirst({
     where: {

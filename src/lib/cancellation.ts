@@ -10,6 +10,8 @@ export type CancellationInput = {
   lateFeePercent: number;
   /** Amount actually paid for this booking (0 for package sessions). */
   paidCents: number;
+  /** The trainer moved this session, so the client can cancel free of charge. */
+  waiveLateFee?: boolean;
 };
 
 export type CancellationOutcome = {
@@ -23,7 +25,7 @@ export type CancellationOutcome = {
 export function cancellationOutcome(input: CancellationInput): CancellationOutcome {
   const hoursAhead = (input.startsAt.getTime() - input.now.getTime()) / 3_600_000;
   // Trainers and admins cancelling never penalise the client.
-  const late = input.cancelledBy === "CLIENT" && hoursAhead < input.windowHours;
+  const late = input.cancelledBy === "CLIENT" && !input.waiveLateFee && hoursAhead < input.windowHours;
   const feePercent = late ? Math.min(100, Math.max(0, input.lateFeePercent)) : 0;
   const paidCents = Math.max(0, Math.round(input.paidCents));
   const keptCents = Math.round((paidCents * feePercent) / 100);

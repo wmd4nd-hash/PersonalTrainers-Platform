@@ -102,6 +102,14 @@ describe("cancelBookingAs", () => {
     expect(refundBooking).toHaveBeenCalledWith("b1", 3000);
   });
 
+  it("refunds in full when the client cancels a session the trainer moved, even at short notice", async () => {
+    booking.startsAt = hoursFromNow(2);
+    (booking as Record<string, unknown>).movedByTrainerAt = new Date();
+    const result = await cancelBookingWithOutcome(client, "b1");
+    expect(result).toMatchObject({ ok: true, late: false, refundCents: 6000 });
+    expect(refundBooking).toHaveBeenCalledWith("b1", 6000);
+  });
+
   it("only refunds what hasn't been refunded already", async () => {
     booking.refundedCents = 1000;
     await cancelBookingAs(client, "b1");

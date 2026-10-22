@@ -10,7 +10,7 @@ import { getBusyPeriods } from "@/lib/bookings";
 import { db } from "@/lib/db";
 import { bookingConfirmed } from "@/lib/events";
 import { consumeCredit, CreditUnavailableError } from "@/lib/packages";
-import { beginBookingCheckout } from "@/lib/payments";
+import { beginBookingCheckout, canTakePayments } from "@/lib/payments";
 import { isSlotAvailable } from "@/lib/scheduling";
 import { meetingUrlFor } from "@/lib/sessions";
 import { bookingSchema, fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
@@ -22,6 +22,11 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
   const parsed = bookingSchema.safeParse(formToObject(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error);
   const { trainerId, startsAt, notes, format, packagePurchaseId } = parsed.data;
+
+  // Package sessions are already paid for; card payments need payments switched on.
+  if (!packagePurchaseId && !canTakePayments()) {
+    return { error: "Online payments aren't available yet, so sessions can't be booked by card. Please try again later." };
+  }
 
   const trainer = await db.trainerProfile.findFirst({
     where: { id: trainerId, published: true, user: { suspendedAt: null } },

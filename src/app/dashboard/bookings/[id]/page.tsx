@@ -219,6 +219,7 @@ async function BookingDetail({ params, searchParams }: PageProps<"/dashboard/boo
                   refundedCents: booking.refundedCents,
                   currency: booking.currency,
                   paidWithPackage: Boolean(booking.packagePurchaseId),
+                  movedByTrainer: Boolean(booking.movedByTrainerAt),
                   clientName: firstName(booking.client.name),
                 })}
               />
@@ -299,6 +300,13 @@ function Where({ booking, now }: { booking: Booking; now: Date }) {
 function FreeUntil({ booking, isTrainer, now }: { booking: Booking; isTrainer: boolean; now: Date }) {
   const { cancellationWindowHours, lateCancelFeePercent, timezone } = booking.trainer;
   if (isTrainer || booking.status !== "CONFIRMED" || cancellationWindowHours === 0) return null;
+  if (booking.movedByTrainerAt) {
+    return (
+      <p className="text-sm text-subtle">
+        {booking.trainer.user.name} moved this session, so you can cancel it free of charge.
+      </p>
+    );
+  }
   const deadline = freeCancellationDeadline(booking.startsAt, cancellationWindowHours);
   if (deadline <= now) return null;
   const until = formatSlot(deadline, timezone);

@@ -15,15 +15,23 @@ export type CurrentUser = {
 
 /** Returns the signed-in user, or null. Deduplicated per request. */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const { userId } = await getSession();
+  const { userId, version = 0 } = await getSession();
   if (!userId) return null;
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, avatarFileId: true, suspendedAt: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      avatarFileId: true,
+      suspendedAt: true,
+      sessionVersion: true,
+    },
   });
-  // Suspended accounts are treated as signed out.
-  if (!user || user.suspendedAt) return null;
-  const { suspendedAt: _suspendedAt, ...current } = user;
+  // Suspended accounts, and sessions from before a password change, are signed out.
+  if (!user || user.suspendedAt || user.sessionVersion !== version) return null;
+  const { suspendedAt: _suspendedAt, sessionVersion: _sessionVersion, ...current } = user;
   return current;
 });
 

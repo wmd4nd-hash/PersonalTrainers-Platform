@@ -15,7 +15,8 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "admin:create": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

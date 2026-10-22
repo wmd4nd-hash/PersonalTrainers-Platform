@@ -8,6 +8,7 @@ import {
   createPayoutsOnboardingLink,
   paymentsEnabled,
   setUpSimulatedPayouts,
+  simulatedPaymentsAllowed,
 } from "@/lib/payments";
 import type { FormState } from "@/lib/validation";
 
@@ -19,6 +20,9 @@ export async function startPayoutsSetup(_prev: FormState, _formData: FormData): 
   const trainerId = await requireTrainerProfileId();
 
   if (!paymentsEnabled()) {
+    if (!simulatedPaymentsAllowed()) {
+      return { error: "Payouts aren't available yet on this site. Please try again later." };
+    }
     await setUpSimulatedPayouts(trainerId);
     refresh();
     return { ok: true };

@@ -15,6 +15,12 @@ describe("cancellationOutcome edge cases", () => {
     expect(r).toEqual({ late: true, refundCents: 0, keptCents: 6500, restoreCredit: false });
   });
 
+  it("waives the late fee on a session the trainer moved", () => {
+    const now = new Date("2026-03-10T09:00:00Z");
+    const r = cancellationOutcome({ ...base, cancelledBy: "CLIENT", now, waiveLateFee: true });
+    expect(r).toEqual({ late: false, refundCents: 6500, keptCents: 0, restoreCredit: true });
+  });
+
   it("never penalises the client when an admin cancels", () => {
     const r = cancellationOutcome({ ...base, cancelledBy: "ADMIN", now: new Date("2026-03-10T09:59:00Z") });
     expect(r).toEqual({ late: false, refundCents: 6500, keptCents: 0, restoreCredit: true });

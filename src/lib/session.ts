@@ -8,6 +8,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
 
 export type SessionData = {
   userId?: string;
+  /** The user's sessionVersion when this session started; older sessions are signed out. */
+  version?: number;
 };
 
 function password() {
@@ -33,8 +35,8 @@ export async function getSession(): Promise<SessionData> {
   }
 }
 
-export async function createSession(userId: string) {
-  const sealed = await sealData({ userId } satisfies SessionData, {
+export async function createSession(userId: string, version: number) {
+  const sealed = await sealData({ userId, version } satisfies SessionData, {
     password: password(),
     ttl: SESSION_TTL_SECONDS,
   });

@@ -69,6 +69,7 @@ async function tryCancel(actor: Actor, bookingId: string, reason: string): Promi
     windowHours: booking.trainer.cancellationWindowHours,
     lateFeePercent: booking.trainer.lateCancelFeePercent,
     paidCents: paidByCard ? booking.priceCents - booking.refundedCents : 0,
+    waiveLateFee: Boolean(booking.movedByTrainerAt),
   });
   const giveCreditBack = Boolean(booking.packagePurchaseId) && outcome.restoreCredit;
 

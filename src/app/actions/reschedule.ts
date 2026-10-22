@@ -79,6 +79,8 @@ export async function rescheduleBooking(
             endsAt: addMinutes(startsAt, durationMinutes),
             // The reminder for the old time no longer applies.
             reminderSentAt: null,
+            // A session the trainer moved can be cancelled by the client without a late fee.
+            ...(actor === "TRAINER" && { movedByTrainerAt: now }),
           },
         });
         if (count === 0) throw new BookingChangedError();
@@ -113,7 +115,7 @@ export async function rescheduleBooking(
           userId: booking.clientId,
           type: "booking.rescheduled",
           title: `${trainer.user.name} moved your session`,
-          body: `Your session on ${from} is now on ${to}. If the new time doesn't work, you can cancel or move it from the booking page.`,
+          body: `Your session on ${from} is now on ${to}. If the new time doesn't work, you can cancel it free of charge from the booking page.`,
           link,
           email: true,
         }),

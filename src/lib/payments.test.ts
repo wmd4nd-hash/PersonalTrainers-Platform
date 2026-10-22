@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("./stripe", () => ({ getStripe: vi.fn(() => null), appUrl: (path: string) => `https://app.test${path}` }));
@@ -260,6 +260,28 @@ describe("markBookingPaid", () => {
     await payments.markBookingPaid("b1", { paymentIntentId: "pi_sim_b1" });
     expect(fakeDb.booking.rows.get("b1")).toMatchObject({ status: "CANCELLED", refundedCents: 5000 });
     expect(bookingConfirmed).not.toHaveBeenCalled();
+  });
+});
+
+describe("simulated payments in production", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("are refused on a live site unless DEMO_MODE is on", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(payments.canTakePayments()).toBe(false);
+    addBooking({ status: "PENDING_PAYMENT", stripePaymentIntentId: null, platformFeeCents: 0 });
+    await expect(payments.beginBookingCheckout("b1")).rejects.toBeInstanceOf(payments.PaymentsUnavailableError);
+    expect(fakeDb.booking.rows.get("b1")).toMatchObject({ status: "PENDING_PAYMENT" });
+    await expect(payments.setUpSimulatedPayouts("t1")).rejects.toBeInstanceOf(payments.PaymentsUnavailableError);
+  });
+
+  it("are allowed on a live site in demo mode, and always in development", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEMO_MODE", "true");
+    expect(payments.canTakePayments()).toBe(true);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEMO_MODE", "");
+    expect(payments.canTakePayments()).toBe(true);
   });
 });
 

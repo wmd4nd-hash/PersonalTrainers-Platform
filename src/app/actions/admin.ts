@@ -47,7 +47,7 @@ export async function suspendUser(userId: string) {
   const admin = await requireAdmin();
   await db.user.updateMany({
     where: { id: userId, NOT: { id: admin.id }, role: { not: "ADMIN" }, suspendedAt: null },
-    data: { suspendedAt: new Date() },
+    data: { suspendedAt: new Date(), sessionVersion: { increment: 1 } },
   });
   refresh();
 }

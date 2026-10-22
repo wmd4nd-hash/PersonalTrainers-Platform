@@ -465,6 +465,7 @@ function BookingItem({ booking: b, user, now }: { booking: BookingRow; user: Cur
                   refundedCents: b.refundedCents,
                   currency: b.currency,
                   paidWithPackage: Boolean(b.packagePurchaseId),
+                  movedByTrainer: Boolean(b.movedByTrainerAt),
                   clientName: firstName(b.client.name),
                 })}
               />

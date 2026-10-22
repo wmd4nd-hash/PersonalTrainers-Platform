@@ -129,6 +129,14 @@ const clients = [
 ] as const;
 
 async function main() {
+  // Demo accounts share a published password, including an admin. Never create them on a live site by accident.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
+    throw new Error(
+      "Refusing to load demo data in production: every demo account, including an admin, uses the password " +
+        `"${DEMO_PASSWORD}". Set ALLOW_DEMO_SEED=true if this really is a demo site, or create a real admin with ` +
+        "npm run admin:create.",
+    );
+  }
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12);
   const ctx: SeedContext = { db, passwordHash, trainers: {}, clients: {}, adminId: "" };
 

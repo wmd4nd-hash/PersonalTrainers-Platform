@@ -18,6 +18,7 @@ import { db } from "@/lib/db";
 import { passwordChangedEmail, passwordResetEmail } from "@/lib/email/templates";
 import { emailEnv } from "@/lib/email/transport";
 import { queueEmail } from "@/lib/notify";
+import { createSession } from "@/lib/session";
 import { appUrl } from "@/lib/stripe";
 import { fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
 import {
@@ -72,13 +73,20 @@ export async function changePassword(_prev: SettingsState, formData: FormData): 
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   const now = new Date();
-  await db.$transaction([
-    db.user.update({ where: { id: user.id }, data: { passwordHash } }),
+  const [updated] = await db.$transaction([
+    // Bumping sessionVersion signs out every other device.
+    db.user.update({
+      where: { id: user.id },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+      select: { sessionVersion: true },
+    }),
     // Outstanding reset links stop working once the password changes.
     db.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: now } }),
   ]);
+  // Keep this device signed in.
+  await createSession(user.id, updated.sessionVersion);
   await queueEmail({ to: user.email, ...passwordChangedEmail({ recipientName: user.name }, emailEnv()) });
-  return { ok: true, message: "Password changed." };
+  return { ok: true, message: "Password changed. You've been signed out on your other devices." };
 }
 
 /** Gives the user a new calendar feed URL; the old one stops working. */
@@ -169,7 +177,11 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
       data: { usedAt: now },
     });
     if (count === 0) return false;
-    await tx.user.update({ where: { id: record.userId }, data: { passwordHash } });
+    // Bumping sessionVersion signs out everyone using the old password.
+    await tx.user.update({
+      where: { id: record.userId },
+      data: { passwordHash, sessionVersion: { increment: 1 }, failedLoginCount: 0, loginLockedUntil: null },
+    });
     // Any other links that were emailed stop working too.
     await tx.passwordResetToken.updateMany({
       where: { userId: record.userId, usedAt: null },

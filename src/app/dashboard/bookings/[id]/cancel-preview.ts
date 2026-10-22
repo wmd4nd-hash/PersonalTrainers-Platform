@@ -12,6 +12,8 @@ export type CancelPreviewInput = {
   refundedCents: number;
   currency: string;
   paidWithPackage: boolean;
+  /** The trainer moved this session, so the client can cancel free of charge. */
+  movedByTrainer?: boolean;
   /** The other person's first name, for the trainer's view. */
   clientName: string;
 };
@@ -38,6 +40,7 @@ export function cancelPreview(input: CancelPreviewInput): CancelPreview {
     windowHours: input.windowHours,
     lateFeePercent: input.lateFeePercent,
     paidCents,
+    waiveLateFee: input.movedByTrainer,
   });
   const money = (cents: number) => formatMoney(cents, input.currency);
 
