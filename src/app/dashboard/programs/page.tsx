@@ -1,26 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Card, PageHeader, Skeleton } from "@/components/ui";
+import { Alert, Card, PageHeader, Skeleton } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatDay } from "@/lib/progress";
 import { CreateProgramForm } from "./create-program-form";
 
 export const metadata: Metadata = { title: "Programs" };
 
-export default function ProgramsPage() {
+export default function ProgramsPage({ searchParams }: PageProps<"/dashboard/programs">) {
   return (
     <>
       <PageHeader title="Programs" />
       <Suspense fallback={<Skeleton className="h-64" />}>
-        <Programs />
+        <Programs searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function Programs() {
-  const user = await requireUser();
+async function Programs({ searchParams }: Pick<PageProps<"/dashboard/programs">, "searchParams">) {
+  const [user, { deleted }] = await Promise.all([requireUser(), searchParams]);
 
   if (user.role === "CLIENT") {
     const assignments = await db.programAssignment.findMany({
@@ -45,13 +46,21 @@ async function Programs() {
         </p>
       );
     }
+    const now = new Date();
     return (
       <ProgramGrid
-        programs={assignments.map(({ program }) => ({
+        programs={assignments.map(({ program, startsOn }) => ({
           id: program.id,
           title: program.title,
           description: program.description,
-          meta: `${program._count.workouts} workouts · by ${program.trainer.user.name}`,
+          meta: [
+            plural(program._count.workouts, "workout"),
+            `by ${program.trainer.user.name}`,
+            // Start dates are calendar dates stored at UTC midnight.
+            startsOn && startsOn > now ? `starts ${formatDay(startsOn, "UTC")}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
         }))}
       />
     );
@@ -65,24 +74,29 @@ async function Programs() {
 
   return (
     <div className="space-y-6">
+      {deleted === "1" && <Alert tone="success">Program deleted.</Alert>}
       <Card>
         <h2 className="mb-4 font-semibold">New program</h2>
         <CreateProgramForm />
       </Card>
       {programs.length === 0 ? (
-        <p className="text-sm text-subtle">No programs yet.</p>
+        <p className="text-sm text-subtle">No programs yet. Create one above, then add workouts and exercises.</p>
       ) : (
         <ProgramGrid
           programs={programs.map((p) => ({
             id: p.id,
             title: p.title,
             description: p.description,
-            meta: `${p._count.workouts} workouts · ${p._count.assignments} clients`,
+            meta: `${plural(p._count.workouts, "workout")} · ${plural(p._count.assignments, "client")}`,
           }))}
         />
       )}
     </div>
   );
+}
+
+function plural(count: number, word: string) {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
 function ProgramGrid({
