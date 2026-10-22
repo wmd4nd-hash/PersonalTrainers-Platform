@@ -51,7 +51,13 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
         if (!available) throw new SlotTakenError();
 
         const credit = packagePurchaseId
-          ? await consumeCredit(tx, { purchaseId: packagePurchaseId, clientId: client.id, trainerId: trainer.id, now })
+          ? await consumeCredit(tx, {
+              purchaseId: packagePurchaseId,
+              clientId: client.id,
+              trainerId: trainer.id,
+              now,
+              startsAt,
+            })
           : null;
 
         const created = await tx.booking.create({
@@ -84,7 +90,7 @@ export async function createBooking(_prev: FormState, formData: FormData): Promi
     paidWithPackage = Boolean(packagePurchaseId);
   } catch (err) {
     if (err instanceof CreditUnavailableError) {
-      return { error: "That package has no sessions left. Choose another way to pay." };
+      return { error: `${err.message}. Choose another time or pay by card.` };
     }
     const conflict =
       err instanceof SlotTakenError ||

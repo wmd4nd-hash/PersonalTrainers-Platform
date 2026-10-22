@@ -256,6 +256,22 @@ export async function reviewPosted(reviewId: string) {
   });
 }
 
+/** Tells the client when a trainer first replies to their review (in-app only). */
+export async function reviewReplied(reviewId: string) {
+  const r = await db.review.findUnique({
+    where: { id: reviewId },
+    include: { trainer: { select: { user: { select: { name: true } } } } },
+  });
+  if (!r || !r.trainerReply || r.hidden) return;
+  await notify({
+    userId: r.clientId,
+    type: "review.replied",
+    title: `${r.trainer.user.name} replied to your review`,
+    body: truncate(r.trainerReply, 200),
+    link: `/trainers/${r.trainerId}/reviews`,
+  });
+}
+
 /** Quiet period for message emails: one email per conversation while earlier ones are unread. */
 const MESSAGE_EMAIL_COOLDOWN_MS = 15 * 60_000;
 
@@ -282,16 +298,19 @@ export async function messageSent(messageId: string) {
     select: { id: true },
   });
 
+  // Flagged messages look like they share contact or payment details; don't
+  // copy those into notifications and emails that live outside the platform.
+  const preview = m.flagged ? "Open the conversation on the platform to read it." : m.body;
   const env = emailEnv();
   await notify({
     userId: recipientId,
     type: "message.received",
     title: `New message from ${m.sender.name}`,
-    body: truncate(m.body, 200),
+    body: truncate(preview, 200),
     link,
     email: !recentUnread,
     emailContent: (r) =>
-      messageReceivedEmail({ recipientName: r.name, senderName: m.sender.name, preview: m.body, link }, env),
+      messageReceivedEmail({ recipientName: r.name, senderName: m.sender.name, preview, link }, env),
   });
 }
 

@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { Prisma } from "@/generated/prisma/client";
 import { requireAdmin, requireRole, requireTrainerProfileId } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { reviewPosted } from "@/lib/events";
+import { reviewPosted, reviewReplied } from "@/lib/events";
 import { recomputeTrainerRating, reviewEligibility, type IneligibleReason } from "@/lib/reviews";
 import { fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
 import { replySchema, reviewSchema } from "@/lib/validation/reviews";
@@ -71,11 +71,17 @@ export async function saveReviewReply(reviewId: string, _prev: FormState, formDa
   const parsed = replySchema.safeParse(formToObject(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error);
 
+  const before = await db.review.findFirst({
+    where: { id: reviewId, trainerId, hidden: false },
+    select: { trainerReply: true },
+  });
   const { count } = await db.review.updateMany({
     where: { id: reviewId, trainerId, hidden: false },
     data: { trainerReply: parsed.data.reply, repliedAt: new Date() },
   });
   if (count === 0) return { error: "This review can't be replied to." };
+  // Only the first reply notifies the client; later edits don't.
+  if (!before?.trainerReply) after(() => reviewReplied(reviewId));
   refresh();
   return { ok: true };
 }

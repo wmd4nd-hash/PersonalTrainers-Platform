@@ -20,7 +20,7 @@ Every email is written to the `EmailOutbox` table first, then delivered.
 
 ## Scheduled jobs
 
-Three Route Handlers under `/api/cron/`. Each accepts `GET` or `POST` and must be called with:
+Four Route Handlers under `/api/cron/`. Each accepts `GET` or `POST` and must be called with:
 
 ```
 Authorization: Bearer <CRON_SECRET>
@@ -32,6 +32,7 @@ Anything else gets `401`. If `CRON_SECRET` is not set, the jobs only run when `N
 | --- | --- | --- |
 | `/api/cron/reminders` | Every hour | Sends the day-before reminder (in-app and email, to client and trainer) for `CONFIRMED` bookings starting 23 to 25 hours from now whose `reminderSentAt` is empty, then sets `reminderSentAt`. Each booking is claimed before sending, so overlapping or repeated runs never remind twice. Optional `?limit=` (default 200, max 1000). |
 | `/api/cron/complete-sessions` | Every hour | Marks `CONFIRMED` bookings that ended more than 12 hours ago as `COMPLETED` and sets `completedAt`. Safe to repeat. |
+| `/api/cron/daily` | Once a day | Marks session packages past their expiry date as `EXPIRED`, and removes the Verified badge from trainers whose approved certification or insurance has expired. Safe to repeat. |
 | `/api/cron/deliver-email` | Every 5 minutes | Sends `QUEUED` emails, oldest first. Rows are locked while sending (`FOR UPDATE SKIP LOCKED`), so parallel runs never send the same email twice. Optional `?limit=` (default 50, max 500). |
 
 Each job answers with a small JSON summary, for example `{"ok":true,"due":3,"sent":3,"failed":0}`.
@@ -42,6 +43,7 @@ Example crontab:
 0 * * * *   curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.example.com/api/cron/reminders
 5 * * * *   curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.example.com/api/cron/complete-sessions
 */5 * * * * curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.example.com/api/cron/deliver-email
+15 3 * * *  curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://app.example.com/api/cron/daily
 ```
 
 On Vercel, add the same paths to `vercel.json` `crons` and set `CRON_SECRET` in the project: Vercel sends it as the bearer token.
