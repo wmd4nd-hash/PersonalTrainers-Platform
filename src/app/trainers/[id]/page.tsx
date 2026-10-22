@@ -85,7 +85,7 @@ async function TrainerProfile({ params, searchParams }: PageProps<"/trainers/[id
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-3xl font-semibold tracking-tight">{trainer.user.name}</h1>
-              <VerifiedBadge status={trainer.verificationStatus} />
+              <VerifiedBadge status={trainer.verificationStatus} verifiedAt={trainer.verifiedAt} />
             </div>
             {trainer.headline && <p className="text-lg text-subtle">{trainer.headline}</p>}
             <RatingSummary average={trainer.ratingAverage} count={trainer.ratingCount} />
