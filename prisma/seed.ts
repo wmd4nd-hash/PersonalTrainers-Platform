@@ -10,7 +10,7 @@ import { seedNotifications } from "./seeds/notifications";
 import { seedPackages } from "./seeds/packages";
 import { seedPayments } from "./seeds/payments";
 import { seedReviews } from "./seeds/reviews";
-import { seedScheduling } from "./seeds/scheduling";
+import { seedScheduling, seedUpcomingSessions } from "./seeds/scheduling";
 import { seedTrust } from "./seeds/trust";
 
 const db = new PrismaClient({
@@ -200,6 +200,7 @@ async function main() {
   await seedTrust(ctx);
   await seedDiscovery(ctx);
   await seedNotifications(ctx);
+  await seedUpcomingSessions(ctx);
 
   console.log(
     `Seeded ${trainers.length} trainers, ${clients.length} clients and an admin (password: ${DEMO_PASSWORD})`,
