@@ -15,6 +15,7 @@ export function getStripe(): Stripe | null {
 }
 
 export function appUrl(path = "") {
-  const base = process.env.APP_URL ?? "http://localhost:3000";
+  // RENDER_EXTERNAL_URL is set automatically on Render.
+  const base = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000";
   return new URL(path, base).toString();
 }

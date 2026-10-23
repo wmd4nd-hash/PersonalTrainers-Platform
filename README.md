@@ -82,6 +82,23 @@ The seed refuses to run when `NODE_ENV=production` unless `ALLOW_DEMO_SEED=true`
 ADMIN_PASSWORD='a long, unique password' npm run admin:create -- you@yourdomain.com "Your Name"
 ```
 
+## Public demo on Render
+
+`render.yaml` describes a free public demo on [Render](https://render.com): a web service and a PostgreSQL database. To create it:
+
+1. Sign in to Render with GitHub and give it access to this repository.
+2. Choose **New → Blueprint**, pick this repository and the `claude/poc-platform` branch, and confirm. Render creates both services and generates the secrets.
+3. When the deploy finishes, open the `onrender.com` link Render shows.
+
+What the demo does:
+
+- `DEMO_MODE=true`: payments are simulated, and a banner tells visitors not to enter real details. The login page lists the demo accounts.
+- Every restart wipes the database and loads fresh demo data (`DEMO_RESET_ON_START=true`). On the free plan the service sleeps after about 15 minutes without visitors, so the demo resets itself after quiet periods. The first visit after a sleep takes about a minute.
+- Visitors can't change the demo accounts' passwords, suspend them or lock them with wrong passwords.
+- Emails aren't sent: they appear in the admin's **Email outbox**.
+
+Render's free PostgreSQL databases are deleted after 30 days unless upgraded; recreate the Blueprint to start again. To deploy another branch, change `branch` in `render.yaml`. For a real launch, remove `DEMO_MODE`, `ALLOW_DEMO_SEED` and `DEMO_RESET_ON_START`, add Stripe and SMTP settings, and create an admin with `npm run admin:create`.
+
 ## Payments
 
 If `STRIPE_SECRET_KEY` is empty, payments are simulated end to end. Bookings and packages are confirmed straight away, "Set up payouts" connects a simulated trainer account, and refunds, earnings, payment history and receipts all work. A banner on every page says that no money is taken.
@@ -130,6 +147,7 @@ In production, add a webhook endpoint in the Stripe dashboard pointing at `https
 | `npm run db:seed` | Load demo data |
 | `npm run db:studio` | Browse the database in Prisma Studio |
 | `npm run admin:create` | Create or promote an admin account |
+| `npm run start:demo` | Apply migrations, load demo data and start (used by `render.yaml`) |
 
 Scheduled jobs (reminders, completing sessions, email delivery, daily expiry) are described in [docs/OPERATIONS.md](docs/OPERATIONS.md). How the code is organised is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -146,6 +164,7 @@ Scheduled jobs (reminders, completing sessions, email delivery, daily expiry) ar
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | With Stripe in production | Verifies the Connect endpoint's signatures |
 | `DEMO_MODE` | No | `true` allows simulated payments on a production build |
 | `ALLOW_DEMO_SEED` | No | `true` allows `npm run db:seed` on a production build |
+| `DEMO_RESET_ON_START` | No | `true` makes `npm run start:demo` wipe and reload the demo data on every start |
 | `SMTP_URL`, `EMAIL_FROM` | For real email | Without `SMTP_URL`, emails are logged and kept in the admin outbox |
 | `PLATFORM_FEE_NEW_CLIENT_PERCENT`, `PLATFORM_FEE_REPEAT_PERCENT` | No | Platform fee rates (defaults 15 and 5) |
 

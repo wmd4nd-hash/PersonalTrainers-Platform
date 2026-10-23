@@ -148,6 +148,8 @@ test("a suspended client is signed out and can't log back in", async ({ browser 
   // Their open session stops working...
   await client.goto("/dashboard");
   await expect(client).toHaveURL(/\/login/);
+  // The redirect happens in the browser; let the login page finish loading before typing.
+  await client.waitForLoadState("networkidle");
 
   // ...and they can't sign in again.
   await client.fill("#email", email);

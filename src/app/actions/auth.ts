@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { isProtectedDemoAccount } from "@/lib/demo";
 import {
   lockedMessage,
   lockExpired,
@@ -68,6 +69,15 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     // Same work and answer as a wrong password, so emails can't be probed.
     await bcrypt.compare(parsed.data.password, DUMMY_HASH);
     return { error: "Incorrect email or password" };
+  }
+
+  // Shared demo accounts have a published password; locking them would just lock everyone out.
+  if (isProtectedDemoAccount(parsed.data.email)) {
+    const valid = await bcrypt.compare(parsed.data.password, user.passwordHash);
+    if (!valid) return { error: "Incorrect email or password" };
+    if (user.suspendedAt) return { error: "This account has been suspended. Contact support." };
+    await createSession(user.id, user.sessionVersion);
+    redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
   }
 
   const now = new Date();

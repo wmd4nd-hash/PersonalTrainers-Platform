@@ -18,6 +18,7 @@ import { db } from "@/lib/db";
 import { passwordChangedEmail, passwordResetEmail } from "@/lib/email/templates";
 import { emailEnv } from "@/lib/email/transport";
 import { queueEmail } from "@/lib/notify";
+import { DEMO_ACCOUNT_MESSAGE, isProtectedDemoAccount } from "@/lib/demo";
 import { createSession } from "@/lib/session";
 import { appUrl } from "@/lib/stripe";
 import { fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
@@ -62,6 +63,7 @@ export async function updateEmailPreferences(_prev: SettingsState, formData: For
 
 export async function changePassword(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
   const user = await requireUser();
+  if (isProtectedDemoAccount(user.email)) return { error: DEMO_ACCOUNT_MESSAGE };
   const parsed = changePasswordSchema.safeParse(formToObject(formData));
   if (!parsed.success) return fieldErrorsOf(parsed.error);
   const { currentPassword, newPassword } = parsed.data;
@@ -123,6 +125,7 @@ export async function requestPasswordReset(_prev: FormState, formData: FormData)
 }
 
 async function sendPasswordReset(email: string) {
+  if (isProtectedDemoAccount(email)) return;
   const user = await db.user.findUnique({
     where: { email },
     select: { id: true, name: true, email: true, suspendedAt: true },

@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { cancelBookingAs } from "@/lib/booking-lifecycle";
 import { db } from "@/lib/db";
+import { DEMO_ACCOUNT_EMAILS, isDemoMode } from "@/lib/demo";
 import { documentReviewed } from "@/lib/events";
 import { deleteUnusedFiles } from "@/lib/storage";
 import { fieldErrorsOf, formToObject, type FormState } from "@/lib/validation";
@@ -46,7 +47,14 @@ export async function reviewDocument(documentId: string, _prev: FormState, formD
 export async function suspendUser(userId: string) {
   const admin = await requireAdmin();
   await db.user.updateMany({
-    where: { id: userId, NOT: { id: admin.id }, role: { not: "ADMIN" }, suspendedAt: null },
+    where: {
+      id: userId,
+      NOT: { id: admin.id },
+      role: { not: "ADMIN" },
+      suspendedAt: null,
+      // On the public demo, the shared demo accounts stay usable for everyone.
+      ...(isDemoMode() && { email: { notIn: [...DEMO_ACCOUNT_EMAILS] } }),
+    },
     data: { suspendedAt: new Date(), sessionVersion: { increment: 1 } },
   });
   refresh();
